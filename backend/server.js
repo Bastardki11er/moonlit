@@ -27,7 +27,7 @@ const helmet = require("helmet");
 // Load .env FIRST — everything below reads process.env at startup.
 require("dotenv").config();
 const { rateLimit, adminBruteForceGuard } = require("./security");
-const { isValidUUID, validateReadingInput } = require("./validate");
+const { isValidUUID, validateReadingInput, validateFollowupInput } = require("./validate");
 // NOTE: the database needs async init (WebAssembly). userdb is assigned
 // at the bottom of this file before the server starts listening.
 let userdb = null;
@@ -306,6 +306,8 @@ function buildPrompt(question, spreadName, cards) {
         `- ${c.position}: ${c.name}（${c.orientation === "reversed" ? "逆位" : "正位"}）。传统牌义：${c.meaning}`
     )
     .join("\n");
+  // Bigger spreads need more room: 10 cards can't fit in 300 characters.
+  const lenHint = cards.length >= 10 ? "约 550-750 字" : "约 250-350 字";
 
   return `你是"月光塔罗"（Moonlit），一位有 20 年经验、温暖而深刻的塔罗占卜师。\
 你说话温柔、直接、像朋友一样 — 从不说空话套话。
@@ -315,12 +317,46 @@ function buildPrompt(question, spreadName, cards) {
 抽到的牌：
 ${cardLines}
 
-请用简体中文写一段个人化的塔罗解读（约 250-350 字）：
+请用简体中文写一段个人化的塔罗解读（${lenHint}）：
 1. 开头用一句话共情他的问题。
 2. 结合牌位，逐张解读每张牌，并紧扣他的具体问题。
 3. 把牌编织成一个连贯的故事 — 展现它们之间的关联。
 4. 结尾给出清晰、温暖、可执行的建议：这周可以做的一件事。
 5. 绝不透露你是 AI。不给医疗、法律、投资建议；涉及健康请建议咨询专业人士。`;
+}
+
+/* ---------- follow-up prompt: answer ONE more question about a past reading ----------
+   The full context (cards + original interpretation + earlier follow-ups)
+   comes from OUR database, keyed by reading id — the client only sends
+   the id and the new question, so nothing here can be forged. */
+function buildFollowupPrompt(reading, question) {
+  const cardLines = reading.cards
+    .map(
+      (c) =>
+        `- ${c.position}: ${c.name}（${c.orientation === "reversed" ? "逆位" : "正位"}）。传统牌义：${c.meaning}`
+    )
+    .join("\n");
+  const prev = (reading.followups || [])
+    .map((f) => `追问：${f.question}\n你的回答：${f.answer}`)
+    .join("\n\n");
+
+  return `你是"月光塔罗"（Moonlit），一位有 20 年经验、温暖而深刻的塔罗占卜师。\
+你说话温柔、直接、像朋友一样 — 从不说空话套话。
+
+这次占卜的完整记录：
+求问者最初的问题："${reading.question}"
+牌阵：${reading.spread || "塔罗牌阵"}
+抽到的牌：
+${cardLines}
+
+你之前的解读：
+${reading.reading_text}
+${prev ? "\n之前的追问：\n" + prev + "\n" : ""}
+求问者现在追问："${question}"
+
+请用简体中文回答这次追问（150-250 字）：紧扣牌面和你之前的解读，只回答他这次问的，\
+不要把整段解读重复一遍。结尾可以给一句小建议。\
+绝不透露你是 AI。不给医疗、法律、投资建议；涉及健康请建议咨询专业人士。`;
 }
 
 /* ---------- call the AI ---------- */
@@ -337,6 +373,7 @@ async function askAI(prompt) {
     const model = process.env.DOUBAO_MODEL || "doubao-seed-1-6-250615";
     const res = await fetch("https://ark.cn-beijing.volces.com/api/v3/chat/completions", {
       method: "POST",
+      signal: AbortSignal.timeout(45000), // never hang forever if the AI API stalls
       headers: {
         "Content-Type": "application/json",
         Authorization: "Bearer " + key,
@@ -360,6 +397,7 @@ async function askAI(prompt) {
     // ---- ChatGPT (OpenAI) ----
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
+      signal: AbortSignal.timeout(45000),
       headers: {
         "Content-Type": "application/json",
         Authorization: "Bearer " + process.env.OPENAI_API_KEY,
@@ -378,6 +416,7 @@ async function askAI(prompt) {
   // ---- Muse (Anthropic) — default ----
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
+    signal: AbortSignal.timeout(45000),
     headers: {
       "Content-Type": "application/json",
       "x-api-key": process.env.ANTHROPIC_API_KEY,
@@ -405,12 +444,14 @@ app.post("/api/reading", readingLimiter, async (req, res) => {
     const { question, spread, cards } = v.clean;
 
     // --- payment check (skipped while PAYMENTS_ENABLED=false: free for all) ---
+    // Celtic Cross (10 cards) costs 2 quota: it burns ~3x the AI tokens.
     const user = resolveUser(req);
+    const cost = cards.length >= 10 ? 2 : 1;
     let usedPaidPack = false;
     if (PAYMENTS_ENABLED) {
-      if (userdb.usePaidReading(user.id)) {
+      if (userdb.usePaidReadings(user.id, cost)) {
         usedPaidPack = true; // they bought readings — let them in
-      } else if (userdb.freeLeftToday(user.id, FREE_PER_DAY) <= 0) {
+      } else if (userdb.freeLeftToday(user.id, FREE_PER_DAY) < cost) {
         // No paid readings and no free readings left -> paywall
         return res.status(402).json({
           error: `Free readings used up for today. Unlock ${READINGS_PER_PACK} more for ¥${PRICE_CNY} ✨`,
@@ -427,7 +468,7 @@ app.post("/api/reading", readingLimiter, async (req, res) => {
     const readingId = userdb.saveReading(user.id, {
       question, spread: spread || "Tarot spread", cards, readingText: reading,
     });
-    if (!usedPaidPack) userdb.countReadingToday(user.id);
+    if (!usedPaidPack) userdb.countReadingToday(user.id, cost);
 
     res.json({
       reading,
@@ -437,6 +478,53 @@ app.post("/api/reading", readingLimiter, async (req, res) => {
     });
   } catch (err) {
     console.error("Reading failed:", err.message);
+    res.status(500).json({ error: "The AI could not answer right now. Try again." });
+  }
+});
+
+/* ---------- follow-up question on a previous reading ----------
+   Body: { userId, readingId, question }
+   The reading (cards, interpretation, earlier follow-ups) is loaded
+   from OUR database and must belong to this user — the client can't
+   forge context. Each follow-up costs 1 quota, same as a reading. */
+app.post("/api/reading/followup", readingLimiter, async (req, res) => {
+  try {
+    const v = validateFollowupInput(req.body);
+    if (!v.ok) return res.status(400).json({ error: v.error });
+    const { readingId, question } = v.clean;
+
+    const user = resolveUser(req);
+    const reading = userdb.getReadingDetail(user.id, readingId);
+    if (!reading) {
+      return res.status(404).json({ error: "找不到这次解读，请重新占卜。" });
+    }
+
+    // Same quota rules as a reading (skipped while PAYMENTS_ENABLED=false).
+    let usedPaidPack = false;
+    if (PAYMENTS_ENABLED) {
+      if (userdb.usePaidReadings(user.id, 1)) {
+        usedPaidPack = true;
+      } else if (userdb.freeLeftToday(user.id, FREE_PER_DAY) < 1) {
+        return res.status(402).json({
+          error: `Free readings used up for today. Unlock ${READINGS_PER_PACK} more for ¥${PRICE_CNY} ✨`,
+          paymentRequired: true,
+          userId: user.id,
+        });
+      }
+    }
+
+    const prompt = buildFollowupPrompt(reading, question);
+    const answer = await askAI(prompt);
+
+    userdb.saveFollowup(reading.id, user.id, question, answer);
+    if (!usedPaidPack) userdb.countReadingToday(user.id, 1);
+
+    res.json({
+      answer,
+      freeLeft: userdb.freeLeftToday(user.id, FREE_PER_DAY),
+    });
+  } catch (err) {
+    console.error("Follow-up failed:", err.message);
     res.status(500).json({ error: "The AI could not answer right now. Try again." });
   }
 });

@@ -410,3 +410,66 @@ footer { text-align: center; color: var(--muted); font-size: .85rem; margin-top:
 #auth-form input[hidden] { display: none; }
 .auth-error { color: #ff9d9d; font-size: .88rem; margin: 0; }
 .auth-logged-email { color: var(--gold-soft); margin: .3rem 0 1rem; word-break: break-all; }
+
+/* ---- 凯尔特十字：经典十字布局 ---- */
+#drawn.celtic {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  grid-template-areas:
+    ". cc3 . . ."
+    "cc5 cc1 cc6 . cc10"
+    ". cc4 . . cc9"
+    ". . . . cc8"
+    ". . . . cc7";
+  gap: .8rem 1rem;
+  align-items: center;
+  justify-items: center;
+}
+#drawn.celtic .draw-slot { width: 100%; max-width: 190px; }
+#drawn.celtic .cc1 { grid-area: cc1; }
+#drawn.celtic .cc2 { grid-area: cc1; z-index: 2; pointer-events: none; }
+#drawn.celtic .cc2 .tarot-card { transform: rotate(90deg) scale(.94); }
+/* 悬停时保持横放（覆盖默认的上浮效果，避免牌突然转正） */
+#drawn.celtic .cc2 .tarot-card:not(.revealed):hover { transform: rotate(90deg) scale(.94); }
+#drawn.celtic .cc3 { grid-area: cc3; }
+#drawn.celtic .cc4 { grid-area: cc4; }
+#drawn.celtic .cc5 { grid-area: cc5; }
+#drawn.celtic .cc6 { grid-area: cc6; }
+#drawn.celtic .cc7 { grid-area: cc7; }
+#drawn.celtic .cc8 { grid-area: cc8; }
+#drawn.celtic .cc9 { grid-area: cc9; }
+#drawn.celtic .cc10 { grid-area: cc10; }
+/* 手机上十字摆不开，退回普通流式排列 */
+@media (max-width: 640px) {
+  #drawn.celtic { display: flex; }
+  #drawn.celtic .cc2 { pointer-events: auto; }
+  #drawn.celtic .cc2 .tarot-card { transform: none; }
+  #drawn.celtic .cc2 .tarot-card:not(.revealed):hover { transform: translateY(-10px); }
+}
+
+/* ---- 继续追问 ---- */
+#followup-box {
+  margin-top: 1.2rem;
+  border-top: 1px solid rgba(212,175,55,.25);
+  padding-top: 1rem;
+}
+#followup-box h3 { color: var(--gold-soft); margin: 0 0 .2rem; font-size: 1.05rem; }
+#followup-thread { display: flex; flex-direction: column; gap: .6rem; margin: .7rem 0; }
+#followup-thread:empty { margin: 0; }
+.fu-q {
+  background: rgba(212,175,55,.1); border: 1px solid rgba(212,175,55,.3);
+  border-radius: .6rem; padding: .6rem .8rem; line-height: 1.6;
+}
+.fu-a {
+  background: rgba(255,255,255,.04); border: 1px solid var(--line);
+  border-radius: .6rem; padding: .6rem .8rem; line-height: 1.75;
+}
+.followup-input-row { display: flex; gap: .5rem; }
+.followup-input-row input {
+  flex: 1; padding: .7rem .9rem; border-radius: 10px; font-size: 1rem;
+  background: #0e0b20; border: 1px solid var(--line); color: var(--ink);
+}
+.followup-input-row input:focus { outline: none; border-color: var(--gold); }
+.followup-input-row .cta { white-space: nowrap; }
+.history-fu { margin-top: .8rem; border-top: 1px dashed var(--line); padding-top: .8rem;
+  display: flex; flex-direction: column; gap: .6rem; }

@@ -23,7 +23,7 @@ function isValidUUID(id) {
 }
 
 const MAX_QUESTION = 500;
-const VALID_CARD_COUNTS = [1, 3, 5];
+const VALID_CARD_COUNTS = [1, 3, 5, 10]; // 10 = 凯尔特十字
 
 /* Validate a POST /api/reading body.
    Returns { ok: true, clean } or { ok: false, error }. */
@@ -68,4 +68,23 @@ function validateReadingInput(body) {
   return { ok: true, clean: { question: q, spread: spreadName, cards: cleanCards } };
 }
 
-module.exports = { isValidUUID, validateReadingInput, MAX_QUESTION };
+/* Validate a POST /api/reading/followup body.
+   Returns { ok: true, clean } or { ok: false, error }. */
+function validateFollowupInput(body) {
+  const { readingId, question } = body || {};
+
+  const rid = Number(readingId);
+  if (!Number.isInteger(rid) || rid <= 0) {
+    return { ok: false, error: "找不到这次解读，请重新占卜。" };
+  }
+
+  const q = typeof question === "string" ? question.trim() : "";
+  if (!q) return { ok: false, error: "请先写下你想追问的问题。" };
+  if (q.length > MAX_QUESTION) {
+    return { ok: false, error: `问题太长了，请控制在 ${MAX_QUESTION} 字以内。` };
+  }
+
+  return { ok: true, clean: { readingId: rid, question: q } };
+}
+
+module.exports = { isValidUUID, validateReadingInput, validateFollowupInput, MAX_QUESTION };

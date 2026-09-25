@@ -45,6 +45,15 @@ CREATE TABLE IF NOT EXISTS readings (
   created_at   TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_readings_user ON readings(user_id, id DESC);
+CREATE TABLE IF NOT EXISTS followups (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  reading_id INTEGER NOT NULL REFERENCES readings(id),
+  user_id    TEXT NOT NULL REFERENCES users(id),
+  question   TEXT NOT NULL,
+  answer     TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_followups_reading ON followups(reading_id, id);
 CREATE TABLE IF NOT EXISTS daily_usage (
   user_id TEXT NOT NULL,
   day     TEXT NOT NULL,
@@ -159,13 +168,14 @@ function freeLeftToday(userId, freePerDay) {
   return freePerDay - (row ? row.count : 0);
 }
 
-function countReadingToday(userId) {
+function countReadingToday(userId, n = 1) {
+  n = Math.max(1, Math.min(10, n | 0));
   run(
-    `INSERT INTO daily_usage (user_id, day, count) VALUES (?, ?, 1)
-     ON CONFLICT(user_id, day) DO UPDATE SET count = count + 1`,
-    [userId, today()]
+    `INSERT INTO daily_usage (user_id, day, count) VALUES (?, ?, ?)
+     ON CONFLICT(user_id, day) DO UPDATE SET count = count + ?`,
+    [userId, today(), n, n]
   );
-  run("UPDATE users SET readings_total = readings_total + 1 WHERE id = ?", [userId]);
+  run("UPDATE users SET readings_total = readings_total + ? WHERE id = ?", [n, userId]);
 }
 
 function addPaidReadings(userId, n) {
@@ -173,9 +183,15 @@ function addPaidReadings(userId, n) {
 }
 
 function usePaidReading(userId) {
+  return usePaidReadings(userId, 1);
+}
+
+/* Consume n paid readings at once (Celtic Cross costs 2). */
+function usePaidReadings(userId, n = 1) {
+  n = Math.max(1, Math.min(10, n | 0));
   const row = get("SELECT paid_readings FROM users WHERE id = ?", [userId]);
-  if (row && row.paid_readings > 0) {
-    run("UPDATE users SET paid_readings = paid_readings - 1 WHERE id = ?", [userId]);
+  if (row && row.paid_readings >= n) {
+    run("UPDATE users SET paid_readings = paid_readings - ? WHERE id = ?", [n, userId]);
     return true;
   }
   return false;
@@ -203,7 +219,27 @@ function getReadings(userId, limit = 20) {
 function getReadingDetail(userId, readingId) {
   const r = get("SELECT * FROM readings WHERE id = ? AND user_id = ?", [readingId, userId]);
   if (!r) return null;
-  return { ...r, cards: JSON.parse(r.cards_json), cards_json: undefined };
+  return { ...r, cards: JSON.parse(r.cards_json), cards_json: undefined,
+           followups: getFollowups(readingId) };
+}
+
+/* ---------- follow-up questions on a reading ---------- */
+
+function saveFollowup(readingId, userId, question, answer) {
+  run(
+    `INSERT INTO followups (reading_id, user_id, question, answer, created_at)
+     VALUES (?, ?, ?, ?, ?)`,
+    [readingId, userId, question, answer, now()]
+  );
+  return get("SELECT seq AS id FROM sqlite_sequence WHERE name = 'followups'").id;
+}
+
+function getFollowups(readingId) {
+  return all(
+    `SELECT id, question, answer, created_at FROM followups
+     WHERE reading_id = ? ORDER BY id ASC`,
+    [readingId]
+  );
 }
 
 /* ---------- orders ---------- */
@@ -360,9 +396,12 @@ const api = {
   countReadingToday,
   addPaidReadings,
   usePaidReading,
+  usePaidReadings,
   saveReading,
   getReadings,
   getReadingDetail,
+  saveFollowup,
+  getFollowups,
   createOrder,
   orderPaid,
   markOrderPaid,

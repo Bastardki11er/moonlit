@@ -63,6 +63,10 @@
         <span class="spread-name">深度洞察</span>
         <span class="spread-desc">五张牌，完整图景</span>
       </button>
+      <button class="spread-btn" data-spread="celtic">
+        <span class="spread-name">凯尔特十字</span>
+        <span class="spread-desc">十张牌 · 经典大牌阵（消耗 2 次免费额度）</span>
+      </button>
     </div>
   </section>
 
@@ -87,6 +91,15 @@
     <button id="get-reading" class="cta">✨ 获取 AI 解读</button>
     <div id="reading" class="reading" hidden></div>
     <p id="reading-note" class="hint" hidden></p>
+    <div id="followup-box" hidden>
+      <h3>💬 继续追问</h3>
+      <div id="followup-thread"></div>
+      <div class="followup-input-row">
+        <input id="followup-input" maxlength="500" placeholder="比如：那我下个月要注意什么？" />
+        <button id="followup-send" class="cta">追问</button>
+      </div>
+      <p class="hint">每次追问消耗 1 次免费额度，AI 会结合你的牌面回答。</p>
+    </div>
     <div class="share-row">
       <button id="share-reading" class="ghost" hidden>📤 生成分享图</button>
     </div>

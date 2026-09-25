@@ -17,6 +17,9 @@ const SPREADS = {
   three:  { name: "过去 · 现在 · 未来", count: 3, positions: ["过去", "现在", "未来"] },
   five:   { name: "深度洞察", count: 5,
             positions: ["现状", "挑战", "隐藏的影响", "指引", "结果"] },
+  celtic: { name: "凯尔特十字", count: 10,
+            positions: ["1 · 现状", "2 · 挑战", "3 · 目标", "4 · 根基", "5 · 过去",
+                        "6 · 未来", "7 · 自我", "8 · 环境", "9 · 希望与恐惧", "10 · 结果"] },
 };
 
 // suit names in Chinese (card names stay in English — tarot tradition)
@@ -143,6 +146,8 @@ function startSpread(spreadKey) {
   const spread = SPREADS[spreadKey];
   $("draw-count").textContent = spread.count === 1 ? "1 张牌" : spread.count + " 张牌";
   $("drawn").innerHTML = "";
+  // Celtic Cross gets the classic cross layout (CSS grid); others use flex rows.
+  $("drawn").classList.toggle("celtic", spreadKey === "celtic");
   updateDeckCount();
 
   $("step-question").hidden = true;
@@ -210,6 +215,11 @@ function renderDrawnCard(card, reversed, position, index) {
   wrap.title = position + " — 点击翻牌";
   slot.appendChild(wrap);
   slot.appendChild(el("div", "pos-tag", position));
+  // Celtic Cross: each slot gets a grid cell; card 2 lies crossed over card 1.
+  if (state.spreadKey === "celtic") {
+    slot.classList.add("cc" + (index + 1));
+    if (index === 1) wrap.classList.add("cc2wrap");
+  }
   $("drawn").appendChild(slot);
 
   // deal flight: the card visibly flies out of the deck into its slot
@@ -311,14 +321,13 @@ $("get-reading").addEventListener("click", async () => {
     box.classList.remove("loading");
     box.textContent = result.text;
     lastReadingText = result.text;
+    currentReadingId = result.readingId || null;
     $("share-reading").hidden = false;
-    const note = $("reading-note");
-    note.hidden = false;
-    note.textContent = DEMO_MODE
-      ? "示例解读（演示模式）。在后端接入 AI API Key 后，即可获得真正的个人化解读。"
-      : "AI 根据你的问题和牌面生成的解读。" +
-        (typeof result.freeLeft === "number" && result.freeLeft <= 1
-          ? "（今天还剩 " + result.freeLeft + " 次免费解读）" : "");
+    updateReadingNote(result.freeLeft);
+    // follow-up box: fresh thread for this reading
+    $("followup-thread").innerHTML = "";
+    $("followup-input").value = "";
+    $("followup-box").hidden = !(DEMO_MODE || currentReadingId);
   } catch (err) {
     box.classList.remove("loading");
     if (err.code === 402) {
@@ -364,7 +373,7 @@ async function fetchRealReading() {
     localStorage.setItem("moonlit_uid", moonlitUserId);
   }
   updateHistoryBadge();
-  return { text: data.reading, freeLeft: data.freeLeft };
+  return { text: data.reading, freeLeft: data.freeLeft, readingId: data.readingId };
 }
 
 /* Sample reading generator for DEMO MODE.
@@ -392,6 +401,77 @@ function makeSampleReading() {
   return lines.join("\n");
 }
 
+function updateReadingNote(freeLeft) {
+  const note = $("reading-note");
+  note.hidden = false;
+  note.textContent = DEMO_MODE
+    ? "示例解读（演示模式）。在后端接入 AI API Key 后，即可获得真正的个人化解读。"
+    : "AI 根据你的问题和牌面生成的解读。" +
+      (typeof freeLeft === "number" && freeLeft <= 1
+        ? "（今天还剩 " + freeLeft + " 次免费解读）" : "");
+}
+
+// ---------- follow-up questions ----------
+function appendFollowup(q, a) {
+  const thread = $("followup-thread");
+  thread.appendChild(el("div", "fu-q", "<b>你问：</b>" + escapeHtml(q)));
+  thread.appendChild(el("div", "fu-a",
+    "<b>月光：</b>" + escapeHtml(a).replace(/\n/g, "<br>")));
+  thread.lastChild.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+$("followup-send").addEventListener("click", async () => {
+  const input = $("followup-input");
+  const q = input.value.trim();
+  if (!q) { input.focus(); return; }
+
+  if (DEMO_MODE) {
+    appendFollowup(q, "（演示模式）追问功能已就绪：正式版里，我会结合你的牌面和之前的解读来回答这个问题。");
+    input.value = "";
+    return;
+  }
+  if (!currentReadingId) return;
+
+  const btn = $("followup-send");
+  btn.disabled = true;
+  const old = btn.textContent;
+  btn.textContent = "思考中…";
+  try {
+    const res = await fetch("/api/reading/followup", {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({
+        userId: moonlitUserId,
+        readingId: currentReadingId,
+        question: q,
+      }),
+    });
+    if (res.status === 402) {
+      $("paywall").hidden = false;
+      $("paywall").scrollIntoView({ behavior: "smooth" });
+      return;
+    }
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      throw new Error(d.error || "API error " + res.status);
+    }
+    const data = await res.json();
+    appendFollowup(q, data.answer);
+    input.value = "";
+    updateReadingNote(data.freeLeft);
+    updateHistoryBadge();
+  } catch (err) {
+    alert(err.message || "AI 连接失败，请重试。");
+  }
+  btn.disabled = false;
+  btn.textContent = old;
+});
+
+// Enter 键也可以追问
+$("followup-input").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") $("followup-send").click();
+});
+
 // ---------- restart ----------
 $("restart").addEventListener("click", () => {
   state = { question: "", spreadKey: null, deck: [], drawn: [] };
@@ -399,6 +479,8 @@ $("restart").addEventListener("click", () => {
   document.querySelectorAll(".spread-btn").forEach((b) => b.classList.remove("selected"));
   $("step-reading").hidden = true;
   $("share-reading").hidden = true;
+  $("followup-box").hidden = true;
+  currentReadingId = null;
   $("step-draw").hidden = true;
   $("step-question").hidden = false;
   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -608,9 +690,18 @@ async function openHistory() {
           const full = dd.reading;
           const cardNames = full.cards.map((c) =>
             escapeHtml(c.position + " · " + zhCardName(c) + (c.orientation === "reversed" ? "（逆位）" : ""))).join("<br>");
+          let fuHtml = "";
+          if (full.followups && full.followups.length) {
+            fuHtml = "<div class='history-fu'><b>💬 追问记录</b>" +
+              full.followups.map((f) =>
+                "<div class='fu-q'><b>你问：</b>" + escapeHtml(f.question) + "</div>" +
+                "<div class='fu-a'><b>月光：</b>" + escapeHtml(f.answer).replace(/\n/g, "<br>") + "</div>"
+              ).join("") + "</div>";
+          }
           body.innerHTML =
             "<div class='history-cards'>" + cardNames + "</div>" +
-            "<div class='reading'>" + escapeHtml(full.reading_text).replace(/\n/g, "<br>") + "</div>";
+            "<div class='reading'>" + escapeHtml(full.reading_text).replace(/\n/g, "<br>") + "</div>" +
+            fuHtml;
           body.dataset.loaded = "1";
         } catch (e) {
           body.innerHTML = "<p class='hint'>加载失败，请重试。</p>";
@@ -646,6 +737,7 @@ $("nav-start").addEventListener("click", () => {
    分享图：把一次解读画成 1080x1440 的漂亮图片，可保存/分享
    ============================================================ */
 let lastReadingText = "";
+let currentReadingId = null; // set when a real reading completes (for follow-ups)
 let shareCanvas = null;
 
 function wrapText(ctx, text, maxWidth) {
@@ -733,40 +825,44 @@ async function renderShareCanvas({ title, subtitle, cards, bodyText, footer }) {
     y += 26;
   }
 
-  // 牌阵
+  // 牌阵（超过 5 张时分多行：凯尔特十字排成两行）
   if (cards && cards.length) {
-    const n = cards.length;
     const gap = 28;
-    const cw = Math.min(300, (W - 180 - gap * (n - 1)) / n);
-    const ch = cw * 1.5;
-    const totalW = cw * n + gap * (n - 1);
-    let x = (W - totalW) / 2;
-    const imgs = await Promise.all(
-      cards.map((c) => loadImg("img/cards/" + c.id + ".webp").catch(() => null))
-    );
-    imgs.forEach((img, i) => {
-      if (img) {
-        if (cards[i].reversed) {
-          ctx.save();
-          ctx.translate(x + cw / 2, y + ch / 2);
-          ctx.rotate(Math.PI);
-          ctx.drawImage(img, -cw / 2, -ch / 2, cw, ch);
-          ctx.restore();
-        } else {
-          ctx.drawImage(img, x, y, cw, ch);
+    const perRow = 5;
+    for (let r = 0; r * perRow < cards.length; r++) {
+      const rowCards = cards.slice(r * perRow, r * perRow + perRow);
+      const n = rowCards.length;
+      const cw = Math.min(300, (W - 180 - gap * (n - 1)) / n);
+      const ch = cw * 1.5;
+      const totalW = cw * n + gap * (n - 1);
+      let x = (W - totalW) / 2;
+      const imgs = await Promise.all(
+        rowCards.map((c) => loadImg("img/cards/" + c.id + ".webp").catch(() => null))
+      );
+      imgs.forEach((img, i) => {
+        if (img) {
+          if (rowCards[i].reversed) {
+            ctx.save();
+            ctx.translate(x + cw / 2, y + ch / 2);
+            ctx.rotate(Math.PI);
+            ctx.drawImage(img, -cw / 2, -ch / 2, cw, ch);
+            ctx.restore();
+          } else {
+            ctx.drawImage(img, x, y, cw, ch);
+          }
         }
-      }
-      ctx.strokeStyle = "rgba(212,175,55,.7)";
-      ctx.lineWidth = 2;
-      ctx.strokeRect(x, y, cw, ch);
-      ctx.fillStyle = "#f0d98c";
-      ctx.font = "28px Georgia, serif";
-      let nm = zhCardName(cards[i]) + (cards[i].reversed ? " ·逆位" : "");
-      if (nm.length > 16) nm = nm.slice(0, 15) + "…";
-      ctx.fillText(nm, x + cw / 2, y + ch + 44);
-      x += cw + gap;
-    });
-    y += ch + 96;
+        ctx.strokeStyle = "rgba(212,175,55,.7)";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x, y, cw, ch);
+        ctx.fillStyle = "#f0d98c";
+        ctx.font = "28px Georgia, serif";
+        let nm = zhCardName(rowCards[i]) + (rowCards[i].reversed ? " ·逆位" : "");
+        if (nm.length > 16) nm = nm.slice(0, 15) + "…";
+        ctx.fillText(nm, x + cw / 2, y + ch + 44);
+        x += cw + gap;
+      });
+      y += ch + 96;
+    }
   }
 
   // 正文
