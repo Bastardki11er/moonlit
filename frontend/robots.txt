@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: http://8.217.3.14:3000/sitemap.xml
+Sitemap: https://moontarot.tech/sitemap.xml

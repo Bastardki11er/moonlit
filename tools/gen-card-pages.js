@@ -13,7 +13,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const BASE_URL = "http://8.217.3.14:3000"; // <-- replace with your domain later
+const BASE_URL = "https://moontarot.tech"; // <-- domain bought 2026-09-25
 const ROOT = path.join(__dirname, "..");
 const OUT_DIR = path.join(ROOT, "frontend", "cards");
 
