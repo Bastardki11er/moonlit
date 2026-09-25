@@ -87,4 +87,89 @@ function validateFollowupInput(body) {
   return { ok: true, clean: { readingId: rid, question: q } };
 }
 
-module.exports = { isValidUUID, validateReadingInput, validateFollowupInput, MAX_QUESTION };
+/* (exports are at the bottom of the file) */
+
+/* ---------- divination (bazi / ziwei / astro) ---------- */
+
+function numIn(v, min, max) {
+  const n = Number(v);
+  return Number.isFinite(n) && n >= min && n <= max ? Math.floor(n) : null;
+}
+
+/* Validate birth data shared by bazi / ziwei / western astrology.
+   Frontend sends gender as 'male'|'female' (mapped from 男/女).
+   Returns { ok, clean } where clean fits taibu-core's BirthTimeInput. */
+function validateBirthInput(body, { needLocation = false } = {}) {
+  const b = body || {};
+  const gender = b.gender === "female" ? "female" : b.gender === "male" ? "male" : null;
+  if (!gender) return { ok: false, error: "请选择性别。" };
+
+  const year = numIn(b.birthYear, 1900, 2026);
+  const month = numIn(b.birthMonth, 1, 12);
+  const day = numIn(b.birthDay, 1, 31);
+  const hour = numIn(b.birthHour, 0, 23);
+  if (year === null || month === null || day === null || hour === null) {
+    return { ok: false, error: "出生日期时间不对，请检查。" };
+  }
+  // Real calendar check (Feb 30 etc.).
+  const d = new Date(year, month - 1, day);
+  if (d.getFullYear() !== year || d.getMonth() !== month - 1 || d.getDate() !== day) {
+    return { ok: false, error: "这个日期不存在，请检查。" };
+  }
+  const minute = b.birthMinute === undefined || b.birthMinute === "" ? 0 : numIn(b.birthMinute, 0, 59);
+  if (minute === null) return { ok: false, error: "出生分钟不对，请检查。" };
+
+  const calendarType = b.calendarType === "lunar" ? "lunar" : "solar";
+  const isLeapMonth = b.isLeapMonth === true;
+
+  const q = typeof b.question === "string" ? b.question.trim() : "";
+  if (q.length > MAX_QUESTION) {
+    return { ok: false, error: `问题太长了，请控制在 ${MAX_QUESTION} 字以内。` };
+  }
+
+  const clean = {
+    gender, birthYear: year, birthMonth: month, birthDay: day,
+    birthHour: hour, birthMinute: minute,
+    calendarType, isLeapMonth, question: q,
+  };
+
+  if (needLocation) {
+    const lat = Number(b.latitude);
+    const lon = Number(b.longitude);
+    if (!Number.isFinite(lat) || lat < -90 || lat > 90 ||
+        !Number.isFinite(lon) || lon < -180 || lon > 180) {
+      return { ok: false, error: "请选择出生城市（经纬度）。" };
+    }
+    clean.latitude = lat;
+    clean.longitude = lon;
+    if (typeof b.birthPlace === "string" && b.birthPlace.trim()) {
+      clean.birthPlace = b.birthPlace.trim().slice(0, 40);
+    }
+  }
+  return { ok: true, clean };
+}
+
+/* ---------- journal ---------- */
+
+const JOURNAL_MOODS = ["开心", "平静", "迷茫", "难过", "期待", "感恩"];
+const JOURNAL_KINDS = ["note", "tarot", "bazi", "ziwei", "astro"];
+
+function validateJournalInput(body) {
+  const b = body || {};
+  const content = typeof b.content === "string" ? b.content.trim() : "";
+  if (!content) return { ok: false, error: "日记内容不能为空。" };
+  if (content.length > 5000) return { ok: false, error: "日记太长了，请控制在 5000 字以内。" };
+  const title = typeof b.title === "string" ? b.title.trim().slice(0, 60) : "";
+  const mood = JOURNAL_MOODS.includes(b.mood) ? b.mood : "";
+  const kind = JOURNAL_KINDS.includes(b.kind) ? b.kind : "note";
+  let refId = null;
+  if (b.refId !== undefined && b.refId !== null && b.refId !== "") {
+    const n = Number(b.refId);
+    if (!Number.isInteger(n) || n <= 0) return { ok: false, error: "关联的解读找不到了。" };
+    refId = n;
+  }
+  return { ok: true, clean: { title, content, mood, kind, refId } };
+}
+
+module.exports = { isValidUUID, validateReadingInput, validateFollowupInput, MAX_QUESTION,
+  validateBirthInput, validateJournalInput, JOURNAL_MOODS };

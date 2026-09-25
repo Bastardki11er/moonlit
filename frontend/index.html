@@ -3,135 +3,237 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>月光塔罗 — 在线塔罗占卜</title>
+<title>月光塔罗 — 塔罗占卜 · 八字 · 紫微 · 星盘</title>
+<meta name="description" content="月光塔罗：在线塔罗占卜、八字排盘、紫微斗数、西方星盘，中文深度解读，附占卜日记。" />
 <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
 
 <div class="stars"></div>
 
-<header>
-  <h1>🌙 月光塔罗</h1>
-  <p class="tagline">问一个问题，抽牌，让塔罗为你揭示答案。</p>
-  <div class="hero-badges">
-    <span>🃏 78 张定制牌面</span>
-    <span>✨ 中文深度解读</span>
+<header class="site-header">
+  <div class="hero">
+    <div class="moon" aria-hidden="true"></div>
+    <h1>月光塔罗</h1>
+    <p class="tagline">塔罗 · 八字 · 紫微 · 星盘 —— 在月光下，看见自己。</p>
+    <div class="hero-badges">
+      <span>🃏 78 张定制牌面</span>
+      <span>✨ 中文深度解读</span>
+      <span>📜 命理排盘</span>
+    </div>
   </div>
-  <nav class="topnav">
-    <button id="nav-start" class="navbtn">🔮 开始占卜</button>
-    <button id="nav-history" class="navbtn">📜 我的记录 <span id="history-count" class="count-badge" hidden></span></button>
-    <a href="#gallery" class="navbtn linkbtn">🖼 牌鉴</a>
+  <nav class="topnav" id="topnav" aria-label="主导航">
+    <button data-view="tarot" class="navbtn active">🔮 塔罗</button>
+    <button data-view="bazi" class="navbtn">📜 八字</button>
+    <button data-view="ziwei" class="navbtn">⭐ 紫微</button>
+    <button data-view="astro" class="navbtn">🪐 星盘</button>
+    <button data-view="journal" class="navbtn">📓 日记</button>
     <button id="nav-auth" class="navbtn">👤 登录 / 注册</button>
   </nav>
   <div id="demo-badge" class="demo-badge" hidden>演示模式 — 示例解读</div>
 </header>
 
 <main>
-  <!-- 每日一牌：每天一张，留住回头客 -->
-  <section id="daily" class="panel">
-    <h2>🌙 今日之牌 · <span id="daily-date"></span></h2>
-    <div class="daily-wrap">
-      <img id="daily-art" class="daily-art" alt="今日塔罗牌" />
-      <div class="daily-text">
-        <div id="daily-name" class="daily-name"></div>
-        <div id="daily-orient" class="hint"></div>
-        <p id="daily-meaning" class="daily-meaning"></p>
-        <p id="daily-fortune" class="daily-fortune"></p>
-        <button id="daily-share" class="ghost">📤 分享今日之牌</button>
+  <!-- ============ 塔罗占卜 ============ -->
+  <div id="view-tarot" class="view">
+    <div class="toolbar">
+      <button id="nav-start" class="navbtn">🔮 开始占卜</button>
+      <button id="nav-history" class="navbtn">📜 我的记录 <span id="history-count" class="count-badge" hidden></span></button>
+      <a href="#gallery" class="navbtn linkbtn">🖼 牌鉴</a>
+    </div>
+
+    <!-- 每日一牌：每天一张，留住回头客 -->
+    <section id="daily" class="panel">
+      <h2>🌙 今日之牌 · <span id="daily-date"></span></h2>
+      <div class="daily-wrap">
+        <img id="daily-art" class="daily-art" alt="今日塔罗牌" />
+        <div class="daily-text">
+          <div id="daily-name" class="daily-name"></div>
+          <div id="daily-orient" class="hint"></div>
+          <p id="daily-meaning" class="daily-meaning"></p>
+          <p id="daily-fortune" class="daily-fortune"></p>
+          <button id="daily-share" class="ghost">📤 分享今日之牌</button>
+        </div>
       </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- 第一步：问题 -->
-  <section id="step-question" class="panel">
-    <h2>第一步 · 写下你的问题</h2>
-    <p class="hint">问题越具体，解读越准。</p>
-    <textarea id="question" rows="3" maxlength="300"
-      placeholder="在这里写下你的问题…"></textarea>
+    <!-- 第一步：问题 -->
+    <section id="step-question" class="panel">
+      <h2>第一步 · 写下你的问题</h2>
+      <p class="hint">问题越具体，解读越准。</p>
+      <textarea id="question" rows="3" maxlength="300"
+        placeholder="在这里写下你的问题…"></textarea>
 
-    <h2>第二步 · 选择牌阵</h2>
-    <div class="spreads">
-      <button class="spread-btn" data-spread="single">
-        <span class="spread-name">单张牌</span>
-        <span class="spread-desc">一个明确的答案</span>
-      </button>
-      <button class="spread-btn" data-spread="three">
-        <span class="spread-name">过去 · 现在 · 未来</span>
-        <span class="spread-desc">三张牌，看见你的故事</span>
-      </button>
-      <button class="spread-btn" data-spread="five">
-        <span class="spread-name">深度洞察</span>
-        <span class="spread-desc">五张牌，完整图景</span>
-      </button>
-      <button class="spread-btn" data-spread="celtic">
-        <span class="spread-name">凯尔特十字</span>
-        <span class="spread-desc">十张牌 · 经典大牌阵（消耗 2 次免费额度）</span>
-      </button>
-    </div>
-  </section>
-
-  <!-- 第三步：抽牌 -->
-  <section id="step-draw" class="panel" hidden>
-    <h2>第三步 · 抽 <span id="draw-count"></span> <span id="draw-progress" class="draw-progress"></span></h2>
-    <p class="hint" id="draw-hint">点击牌堆抽牌，点击每张牌翻面。</p>
-    <div class="table">
-      <div class="draw-fx" id="draw-fx"></div>
-      <div id="deck" class="deck" title="点击抽牌">
-        <div class="deck-card"></div>
-        <span id="deck-left"></span>
+      <h2>第二步 · 选择牌阵</h2>
+      <div class="spreads">
+        <button class="spread-btn" data-spread="single">
+          <span class="spread-name">单张牌</span>
+          <span class="spread-desc">一个明确的答案</span>
+        </button>
+        <button class="spread-btn" data-spread="three">
+          <span class="spread-name">过去 · 现在 · 未来</span>
+          <span class="spread-desc">三张牌，看见你的故事</span>
+        </button>
+        <button class="spread-btn" data-spread="five">
+          <span class="spread-name">深度洞察</span>
+          <span class="spread-desc">五张牌，完整图景</span>
+        </button>
+        <button class="spread-btn" data-spread="celtic">
+          <span class="spread-name">凯尔特十字</span>
+          <span class="spread-desc">十张牌 · 经典大牌阵（消耗 2 次免费额度）</span>
+        </button>
       </div>
-      <div id="drawn" class="drawn"></div>
-    </div>
-  </section>
+    </section>
 
-  <!-- 第四步：解读 -->
-  <section id="step-reading" class="panel" hidden>
-    <h2>第四步 · 你的解读</h2>
-    <div id="cards-summary" class="cards-summary"></div>
-    <button id="get-reading" class="cta">✨ 获取解读</button>
-    <div id="reading" class="reading" hidden></div>
-    <p id="reading-note" class="hint" hidden></p>
-    <div id="followup-box" hidden>
-      <h3>💬 继续追问</h3>
-      <div id="followup-thread"></div>
-      <div class="followup-input-row">
-        <input id="followup-input" maxlength="500" placeholder="比如：那我下个月要注意什么？" />
-        <button id="followup-send" class="cta">追问</button>
+    <!-- 第三步：抽牌 -->
+    <section id="step-draw" class="panel" hidden>
+      <h2>第三步 · 抽 <span id="draw-count"></span> <span id="draw-progress" class="draw-progress"></span></h2>
+      <p class="hint" id="draw-hint">点击牌堆抽牌，点击每张牌翻面。</p>
+      <div class="table">
+        <div class="draw-fx" id="draw-fx"></div>
+        <div id="deck" class="deck" title="点击抽牌">
+          <div class="deck-card"></div>
+          <span id="deck-left"></span>
+        </div>
+        <div id="drawn" class="drawn"></div>
       </div>
-      <p class="hint">每次追问消耗 1 次免费额度，月光会结合你的牌面回答。</p>
-    </div>
-    <div class="share-row">
-      <button id="share-reading" class="ghost" hidden>📤 生成分享图</button>
-    </div>
-    <div id="paywall" hidden>
-      <p class="hint">你已用完免费次数。<br />解锁 <b>10 次解读，仅 ¥9.9</b> — 一次付费：</p>
-      <div class="pay-methods">
-        <button id="pay-wechat" class="cta">💬 微信支付</button>
-        <button id="pay-alipay" class="cta">💙 支付宝</button>
-      </div>
-      <div id="qr-box" hidden>
-        <p class="hint">用手机扫描支付 ¥9.9：</p>
-        <div id="qr"></div>
-        <p class="hint">等待支付… <span id="pay-status"></span></p>
-      </div>
-    </div>
-    <button id="restart" class="ghost">再问一个问题</button>
-  </section>
+    </section>
 
-  <!-- 我的记录：历史解读 -->
-  <section id="step-history" class="panel" hidden>
-    <h2>📜 我的解读记录</h2>
-    <p class="hint">记录保存在你的账号下（这台设备的浏览器）。点击一条展开完整解读。</p>
-    <div id="history-list"></div>
-    <button id="history-close" class="ghost">关闭</button>
-  </section>
+    <!-- 第四步：解读 -->
+    <section id="step-reading" class="panel" hidden>
+      <h2>第四步 · 你的解读</h2>
+      <div id="cards-summary" class="cards-summary"></div>
+      <button id="get-reading" class="cta">✨ 获取解读</button>
+      <div id="reading" class="reading" hidden></div>
+      <p id="reading-note" class="hint" hidden></p>
+      <div id="followup-box" hidden>
+        <h3>💬 继续追问</h3>
+        <div id="followup-thread"></div>
+        <div class="followup-input-row">
+          <input id="followup-input" maxlength="500" placeholder="比如：那我下个月要注意什么？" />
+          <button id="followup-send" class="cta">追问</button>
+        </div>
+        <p class="hint">每次追问消耗 1 次免费额度，月光会结合你的牌面回答。</p>
+      </div>
+      <div class="share-row">
+        <button id="share-reading" class="ghost" hidden>📤 生成分享图</button>
+        <button id="journal-from-tarot" class="ghost" hidden>📓 记到日记</button>
+      </div>
+      <div id="paywall" hidden>
+        <p class="hint">你已用完免费次数。<br />解锁 <b>10 次解读，仅 ¥9.9</b> — 一次付费：</p>
+        <div class="pay-methods">
+          <button id="pay-wechat" class="cta">💬 微信支付</button>
+          <button id="pay-alipay" class="cta">💙 支付宝</button>
+        </div>
+        <div id="qr-box" hidden>
+          <p class="hint">用手机扫描支付 ¥9.9：</p>
+          <div id="qr"></div>
+          <p class="hint">等待支付… <span id="pay-status"></span></p>
+        </div>
+      </div>
+      <button id="restart" class="ghost">再问一个问题</button>
+    </section>
 
-  <!-- 牌鉴：浏览全部 78 张牌 -->
-  <section id="gallery" class="panel">
-    <h2>🔮 牌鉴 · 认识每一张牌</h2>
-    <p class="hint">78 张牌全部为月光塔罗定制绘制。点击任意一张查看它的含义。</p>
-    <div id="gallery-grid"></div>
-  </section>
+    <!-- 我的记录：历史解读 -->
+    <section id="step-history" class="panel" hidden>
+      <h2>📜 我的解读记录</h2>
+      <p class="hint">记录保存在你的账号下（这台设备的浏览器）。点击一条展开完整解读。</p>
+      <div id="history-list"></div>
+      <button id="history-close" class="ghost">关闭</button>
+    </section>
+
+    <!-- 牌鉴：浏览全部 78 张牌 -->
+    <section id="gallery" class="panel">
+      <h2>🔮 牌鉴 · 认识每一张牌</h2>
+      <p class="hint">78 张牌全部为月光塔罗定制绘制。点击任意一张查看它的含义。</p>
+      <div id="gallery-grid"></div>
+    </section>
+  </div>
+
+  <!-- ============ 八字排盘 ============ -->
+  <div id="view-bazi" class="view" hidden>
+    <section class="panel">
+      <h2>📜 八字排盘</h2>
+      <p class="hint">输入出生信息，排出你的四柱八字，附老师傅中文解读（性格 / 事业 / 感情 / 运势）。</p>
+      <div id="bazi-form-wrap"></div>
+      <div id="bazi-result" hidden>
+        <h3>四柱八字</h3>
+        <div id="bazi-pillars" class="pillars"></div>
+        <p id="bazi-relations" class="hint"></p>
+        <h3>命理解读</h3>
+        <div id="bazi-reading" class="reading"></div>
+        <div class="result-actions">
+          <button id="bazi-journal" class="ghost">📓 记到日记</button>
+          <button id="bazi-again" class="ghost">↩️ 重新排盘</button>
+        </div>
+      </div>
+    </section>
+    <section class="panel">
+      <h2>📜 八字历史</h2>
+      <div id="bazi-history" class="mini-history"></div>
+    </section>
+  </div>
+
+  <!-- ============ 紫微斗数 ============ -->
+  <div id="view-ziwei" class="view" hidden>
+    <section class="panel">
+      <h2>⭐ 紫微斗数</h2>
+      <p class="hint">输入出生信息，排出你的紫微命盘十二宫，附老师傅中文解读。</p>
+      <div id="ziwei-form-wrap"></div>
+      <div id="ziwei-result" hidden>
+        <h3>紫微命盘</h3>
+        <div id="ziwei-grid" class="ziwei-grid"></div>
+        <h3>命理解读</h3>
+        <div id="ziwei-reading" class="reading"></div>
+        <div class="result-actions">
+          <button id="ziwei-journal" class="ghost">📓 记到日记</button>
+          <button id="ziwei-again" class="ghost">↩️ 重新排盘</button>
+        </div>
+      </div>
+    </section>
+    <section class="panel">
+      <h2>⭐ 紫微历史</h2>
+      <div id="ziwei-history" class="mini-history"></div>
+    </section>
+  </div>
+
+  <!-- ============ 西方星盘 ============ -->
+  <div id="view-astro" class="view" hidden>
+    <section class="panel">
+      <h2>🪐 西方星盘</h2>
+      <p class="hint">输入出生时间与出生城市，生成你的本命星盘，附占星师中文解读。</p>
+      <div id="astro-form-wrap"></div>
+      <div id="astro-result" hidden>
+        <h3>本命星盘</h3>
+        <div class="wheel-wrap"><svg id="astro-wheel" viewBox="0 0 400 400" role="img" aria-label="本命星盘"></svg></div>
+        <div id="astro-points" class="astro-points"></div>
+        <h3>星盘解读</h3>
+        <div id="astro-reading" class="reading"></div>
+        <div class="result-actions">
+          <button id="astro-journal" class="ghost">📓 记到日记</button>
+          <button id="astro-again" class="ghost">↩️ 重新排盘</button>
+        </div>
+      </div>
+    </section>
+    <section class="panel">
+      <h2>🪐 星盘历史</h2>
+      <div id="astro-history" class="mini-history"></div>
+    </section>
+  </div>
+
+  <!-- ============ 占卜日记 ============ -->
+  <div id="view-journal" class="view" hidden>
+    <section class="panel">
+      <div class="journal-head">
+        <div>
+          <h2>📓 占卜日记</h2>
+          <p class="hint">把每一次心动、每一次解读都记下来 —— 时间会给你答案。</p>
+        </div>
+        <button id="journal-new" class="cta">✏️ 写一篇</button>
+      </div>
+      <div id="journal-list" class="journal-list"></div>
+    </section>
+  </div>
 
   <footer>
     <p>🌙 月光塔罗 · 牌为你开门，路要你自己走。仅供娱乐与自我探索。</p>
@@ -192,8 +294,28 @@
   </div>
 </div>
 
+<!-- 占卜日记编辑器 -->
+<div id="journal-modal" class="modal" hidden>
+  <div class="modal-card journal-card">
+    <button id="journal-close" class="modal-close" aria-label="关闭">✕</button>
+    <h3 id="journal-modal-title">✏️ 写日记</h3>
+    <p id="journal-link-info" class="hint" hidden></p>
+    <input id="journal-title" maxlength="60" placeholder="标题（可选）" />
+    <div class="mood-row" id="journal-moods"></div>
+    <div id="journal-readonly" class="reading" hidden></div>
+    <textarea id="journal-content" rows="8" maxlength="5000" placeholder="写下今天的心情、问题、感悟…"></textarea>
+    <p id="journal-error" class="auth-error" hidden></p>
+    <div class="journal-actions">
+      <button id="journal-save" class="cta">💾 保存</button>
+      <button id="journal-edit" class="ghost" hidden>✏️ 编辑</button>
+      <button id="journal-delete" class="ghost danger" hidden>🗑️ 删除</button>
+    </div>
+  </div>
+</div>
+
 <script src="js/cards.js"></script>
 <script src="js/card-names-zh.js"></script>
 <script src="js/app.js"></script>
+<script src="js/divination.js"></script>
 </body>
 </html>

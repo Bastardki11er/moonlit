@@ -82,6 +82,29 @@ CREATE TABLE IF NOT EXISTS sessions (
   expires_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_sessions_account ON sessions(account_id);
+CREATE TABLE IF NOT EXISTS divinations (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id      TEXT NOT NULL REFERENCES users(id),
+  kind         TEXT NOT NULL,              -- bazi | ziwei | astro
+  input_json   TEXT NOT NULL,              -- validated birth data (no secrets)
+  chart_json   TEXT NOT NULL,              -- chart data for display
+  reading_text TEXT NOT NULL,
+  question     TEXT NOT NULL DEFAULT '',
+  created_at   TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_divinations_user ON divinations(user_id, kind, id DESC);
+CREATE TABLE IF NOT EXISTS journal (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id    TEXT NOT NULL REFERENCES users(id),
+  kind       TEXT NOT NULL DEFAULT 'note', -- note | tarot | bazi | ziwei | astro
+  ref_id     INTEGER,                       -- reading/divination id when linked
+  title      TEXT NOT NULL DEFAULT '',
+  content    TEXT NOT NULL,
+  mood       TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_journal_user ON journal(user_id, id DESC);
 `;
 
 let db = null;
@@ -389,6 +412,73 @@ function mergeUsers(fromUserId, toUserId) {
   }
 }
 
+/* ---------- divinations (bazi / ziwei / astro) ---------- */
+
+function saveDivination(userId, { kind, input, chartJson, readingText, question }) {
+  run(
+    `INSERT INTO divinations (user_id, kind, input_json, chart_json, reading_text, question, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [userId, kind, JSON.stringify(input), JSON.stringify(chartJson), readingText, question || "", now()]
+  );
+  return get("SELECT seq AS id FROM sqlite_sequence WHERE name = 'divinations'").id;
+}
+
+function getDivinations(userId, kind, limit = 20) {
+  const rows = kind
+    ? all(`SELECT id, kind, question, created_at FROM divinations
+           WHERE user_id = ? AND kind = ? ORDER BY id DESC LIMIT ?`, [userId, kind, limit])
+    : all(`SELECT id, kind, question, created_at FROM divinations
+           WHERE user_id = ? ORDER BY id DESC LIMIT ?`, [userId, limit]);
+  return rows;
+}
+
+function getDivinationDetail(userId, id) {
+  const r = get("SELECT * FROM divinations WHERE id = ? AND user_id = ?", [id, userId]);
+  if (!r) return null;
+  return { ...r, input: JSON.parse(r.input_json), chart: JSON.parse(r.chart_json),
+           input_json: undefined, chart_json: undefined };
+}
+
+/* ---------- journal (占卜日记) ---------- */
+
+function saveJournal(userId, { title, content, mood, kind, refId }) {
+  const t = now();
+  run(
+    `INSERT INTO journal (user_id, kind, ref_id, title, content, mood, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [userId, kind || "note", refId || null, title || "", content, mood || "", t, t]
+  );
+  return get("SELECT seq AS id FROM sqlite_sequence WHERE name = 'journal'").id;
+}
+
+function listJournal(userId, limit = 50) {
+  return all(
+    `SELECT id, kind, ref_id, title, substr(content, 1, 120) AS excerpt,
+            mood, created_at, updated_at
+     FROM journal WHERE user_id = ? ORDER BY id DESC LIMIT ?`,
+    [userId, limit]
+  );
+}
+
+function getJournalEntry(userId, id) {
+  return get("SELECT * FROM journal WHERE id = ? AND user_id = ?", [id, userId]) || null;
+}
+
+function updateJournal(userId, id, { title, content, mood }) {
+  const row = get("SELECT id FROM journal WHERE id = ? AND user_id = ?", [id, userId]);
+  if (!row) return false;
+  run("UPDATE journal SET title = ?, content = ?, mood = ?, updated_at = ? WHERE id = ?",
+    [title || "", content, mood || "", now(), id]);
+  return true;
+}
+
+function deleteJournal(userId, id) {
+  const row = get("SELECT id FROM journal WHERE id = ? AND user_id = ?", [id, userId]);
+  if (!row) return false;
+  run("DELETE FROM journal WHERE id = ?", [id]);
+  return true;
+}
+
 const api = {
   getOrCreateUser,
   setNickname,
@@ -419,6 +509,15 @@ const api = {
   getUserForAccount,
   attachUserToAccount,
   mergeUsers,
+  // divinations & journal
+  saveDivination,
+  getDivinations,
+  getDivinationDetail,
+  saveJournal,
+  listJournal,
+  getJournalEntry,
+  updateJournal,
+  deleteJournal,
 };
 
 module.exports = { init };

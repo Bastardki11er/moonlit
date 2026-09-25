@@ -27,7 +27,10 @@ const helmet = require("helmet");
 // Load .env FIRST — everything below reads process.env at startup.
 require("dotenv").config();
 const { rateLimit, adminBruteForceGuard } = require("./security");
-const { isValidUUID, validateReadingInput, validateFollowupInput } = require("./validate");
+const { isValidUUID, validateReadingInput, validateFollowupInput,
+  validateBirthInput, validateJournalInput } = require("./validate");
+const { buildReading, calcAstro } = require("./divination");
+const { ragStatus } = require("./ziwei-rag");
 // NOTE: the database needs async init (WebAssembly). userdb is assigned
 // at the bottom of this file before the server starts listening.
 let userdb = null;
@@ -529,6 +532,114 @@ app.post("/api/reading/followup", readingLimiter, async (req, res) => {
   }
 });
 
+/* ---------- 命理排盘: 八字 / 紫微斗数 / 西方星盘 ----------
+   POST /api/divination/:kind  (kind = bazi | ziwei | astro)
+   Body: { gender, birthYear, birthMonth, birthDay, birthHour,
+           birthMinute?, calendarType?, isLeapMonth?, question?,
+           latitude?, longitude?, birthPlace? (astro only) }
+   The chart is calculated by OUR code (taibu-core, MIT) from validated
+   birth data — the client can never inject prompt text through it.
+   Each reading costs 1 quota, same as a tarot reading. */
+const DIVINATION_KINDS = ["bazi", "ziwei", "astro"];
+const DIVINATION_NAMES = { bazi: "八字命盘", ziwei: "紫微斗数", astro: "西方星盘" };
+
+app.post("/api/divination/:kind", readingLimiter, async (req, res) => {
+  try {
+    const kind = req.params.kind;
+    if (!DIVINATION_KINDS.includes(kind)) {
+      return res.status(404).json({ error: "没有这种排盘。" });
+    }
+    const v = validateBirthInput(req.body, { needLocation: kind === "astro" });
+    if (!v.ok) return res.status(400).json({ error: v.error });
+    const { question, ...calcInput } = v.clean;
+
+    // Same quota rules as tarot (skipped while PAYMENTS_ENABLED=false).
+    const user = resolveUser(req);
+    let usedPaidPack = false;
+    if (PAYMENTS_ENABLED) {
+      if (userdb.usePaidReadings(user.id, 1)) {
+        usedPaidPack = true;
+      } else if (userdb.freeLeftToday(user.id, FREE_PER_DAY) < 1) {
+        return res.status(402).json({
+          error: `Free readings used up for today. Unlock ${READINGS_PER_PACK} more for ¥${PRICE_CNY} ✨`,
+          paymentRequired: true,
+          userId: user.id,
+        });
+      }
+    }
+
+    const { chartJson, prompt, extra } = buildReading(kind, calcInput, question);
+    const reading = await askAI(prompt);
+
+    const id = userdb.saveDivination(user.id, {
+      kind, input: calcInput, chartJson, readingText: reading, question,
+    });
+    if (!usedPaidPack) userdb.countReadingToday(user.id, 1);
+
+    res.json({ id, kind, name: DIVINATION_NAMES[kind], chart: chartJson, reading,
+               extra: kind === "astro" ? extra : undefined,
+               freeLeft: userdb.freeLeftToday(user.id, FREE_PER_DAY) });
+  } catch (err) {
+    console.error("Divination failed:", err.message);
+    res.status(500).json({ error: "排盘失败，请稍后再试。" });
+  }
+});
+
+/* Divination history (per kind, or all). */
+app.get("/api/divination/history", (req, res) => {
+  const user = resolveUser(req);
+  const kind = DIVINATION_KINDS.includes(req.query.kind) ? req.query.kind : null;
+  res.json({ items: userdb.getDivinations(user.id, kind) });
+});
+
+app.get("/api/divination/:kind/:id", (req, res) => {
+  const kind = req.params.kind;
+  if (!DIVINATION_KINDS.includes(kind)) return res.status(404).json({ error: "没有这种排盘。" });
+  const user = resolveUser(req);
+  const d = userdb.getDivinationDetail(user.id, Number(req.params.id));
+  if (!d || d.kind !== kind) return res.status(404).json({ error: "找不到这次排盘。" });
+  if (kind === "astro") d.extra = calcAstro(d.input).extra; // geometry for the wheel
+  res.json(d);
+});
+
+/* ---------- 占卜日记 ----------
+   Private notes: linked to a tarot/divination reading or standalone.
+   All endpoints are scoped to the caller's user id. */
+app.get("/api/journal", (req, res) => {
+  const user = resolveUser(req);
+  res.json({ items: userdb.listJournal(user.id) });
+});
+
+app.post("/api/journal", readingLimiter, (req, res) => {
+  const v = validateJournalInput(req.body);
+  if (!v.ok) return res.status(400).json({ error: v.error });
+  const user = resolveUser(req);
+  const id = userdb.saveJournal(user.id, v.clean);
+  res.json({ id });
+});
+
+app.get("/api/journal/:id", (req, res) => {
+  const user = resolveUser(req);
+  const e = userdb.getJournalEntry(user.id, Number(req.params.id));
+  if (!e) return res.status(404).json({ error: "找不到这篇日记。" });
+  res.json(e);
+});
+
+app.put("/api/journal/:id", (req, res) => {
+  const v = validateJournalInput(req.body);
+  if (!v.ok) return res.status(400).json({ error: v.error });
+  const user = resolveUser(req);
+  const ok = userdb.updateJournal(user.id, Number(req.params.id), v.clean);
+  if (!ok) return res.status(404).json({ error: "找不到这篇日记。" });
+  res.json({ ok: true });
+});
+
+app.delete("/api/journal/:id", (req, res) => {
+  const user = resolveUser(req);
+  const ok = userdb.deleteJournal(user.id, Number(req.params.id));
+  if (!ok) return res.status(404).json({ error: "找不到这篇日记。" });
+  res.json({ ok: true });
+});
 /* ---------- XorPay checkout: visitor pays ¥9.9 once ----------
    Body: { method: "wechat" | "alipay" }
    Creates an order at XorPay and returns a QR code for the visitor to scan
