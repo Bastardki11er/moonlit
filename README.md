@@ -87,41 +87,58 @@ Pricing: **¥9.9 once for 10 readings** (change with `PRICE_CNY` /
 The backend already limits free readings per day (`FREE_READINGS_PER_DAY`) —
 after the free ones, it returns "payment required". That is where XorPay plugs in.
 
-## 🚀 Real launch checklist — from zero to paying customers
+## 🚀 Real launch checklist — from zero to real customers
 
-All the code is DONE: site, AI backend, Stripe payments, paywall.
-What is left is accounts + deploy — those need YOU, because they use
+All the code is DONE: Chinese site, Doubao AI backend, XorPay payments
+(ready but OFF — free for everyone for now).
+What is left is accounts + server — those need YOU, because they use
 your identity and your money. Do them in this order:
 
-### Step 1 — Doubao AI key (15 min, ~¥5)
-1. Sign up at https://console.volcengine.com (火山引擎, needs 实名认证).
-2. 开通豆包大模型, then go to 方舟 → API Key 管理 → create a key → copy it.
-3. Add a few yuan of credit. Set a monthly spending cap while you learn.
-4. You will paste it on the server in Step 3 — never into the code.
+### Step 1 — Doubao AI key ✅ DONE
+You already did this: key is in `.env`, model `doubao-seed-evolving`
+is activated, and the first real AI reading works.
 
-### Step 2 — Put the code on GitHub (10 min)
-1. Create a free GitHub account, make a new repository (e.g. `moonlit-tarot`).
-2. In this folder:
-   ```
-   git init
-   git add .
-   git commit -m "launch"
-   git branch -M main
-   git remote add origin YOUR-REPO-URL
-   git push -u origin main
-   ```
-3. `.gitignore` already blocks `.env` — double-check it never uploads.
+### Step 2 — Rent a cloud server （云服务器）
+Since your visitors are in China, rent a **Hong Kong （香港）** region
+server — fast for them, and no 备案 (ICP filing) needed.
+Any provider works: Alibaba Cloud （阿里云）, Tencent Cloud （腾讯云）.
+The smallest size (1 CPU / 1 GB RAM) is plenty. Choose **Ubuntu 22.04**.
 
-### Step 3 — Deploy on Render (20 min, free)
-1. Sign up at https://render.com → New → Web Service → connect your repo.
-2. Build command: `npm install` · Start command: `npm start`.
-3. Add Environment Variables (same names as in `.env.example`):
-   `AI_PROVIDER=doubao`, `DOUBAO_API_KEY`, `DOUBAO_MODEL`,
-   `FREE_READINGS_PER_DAY`, `PRICE_CNY`, `READINGS_PER_PACK`,
-   `XORPAY_AID`, `XORPAY_SECRET`,
-   `BASE_URL` (= your Render URL, e.g. `https://moonlit.onrender.com`).
-4. Deploy → open your URL. In `frontend/js/app.js` set `DEMO_MODE = false`,
-   commit, push — Render redeploys automatically. Readings are now REAL AI.
+### Step 3 — Put the site on the server (30 min)
+On your server, run these commands one by one:
+
+```bash
+# 1. Install Node.js 20
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs unzip
+
+# 2. Upload tarot-site.zip to the server (use your provider's web
+#    console or scp from your laptop), then:
+unzip tarot-site.zip
+cd tarot-site
+
+# 3. Install dependencies
+npm install --omit=dev
+
+# 4. Create your .env file and paste your keys into it
+cp .env.example .env
+nano .env
+#    -> fill in DOUBAO_API_KEY and DOUBAO_MODEL, save with Ctrl+O, exit with Ctrl+X
+#    -> leave PAYMENTS_ENABLED=false (free for everyone for now)
+
+# 5. Keep the site running forever (auto-restart if it crashes)
+sudo npm install -g pm2
+pm2 start backend/server.js --name moonlit
+pm2 save
+pm2 startup
+#    -> run the one command it prints, then you're done
+
+# 6. In your cloud provider's firewall / 安全组, open port 3000.
+#    Then visit:  http://YOUR_SERVER_IP:3000
+```
+
+That's it — real visitors, real AI readings. `pm2 logs moonlit`
+shows the log if anything looks wrong; `pm2 restart moonlit` restarts it.
 
 ### Step 4 — Take real payments with WeChat Pay / Alipay (when you're ready)
 Charging is **OFF by default** — right now everyone gets unlimited free

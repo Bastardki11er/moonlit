@@ -9,7 +9,8 @@
    in this file, because anyone can read frontend code.
    ============================================================ */
 
-const DEMO_MODE = true; // flip to false after you deploy the backend
+const DEMO_MODE = false; // false = real AI readings via your backend (production).
+                             // Set to true only to preview sample readings without a backend.
 
 const SPREADS = {
   single: { name: "单张牌", count: 1, positions: ["你的答案"] },
