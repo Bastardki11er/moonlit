@@ -13,6 +13,10 @@
 <header>
   <h1>🌙 月光塔罗</h1>
   <p class="tagline">问一个问题，抽牌，让 AI 为你解读。</p>
+  <div class="hero-badges">
+    <span>🃏 78 张定制牌面</span>
+    <span>✨ AI 中文解读</span>
+  </div>
   <div id="demo-badge" class="demo-badge" hidden>演示模式 — 示例解读</div>
 </header>
 
@@ -77,11 +81,29 @@
     <button id="restart" class="ghost">再问一个问题</button>
   </section>
 
-  <!-- 给站长的提示 -->
+  <!-- 牌鉴：浏览全部 78 张牌 -->
+  <section id="gallery" class="panel">
+    <h2>🔮 牌鉴 · 认识每一张牌</h2>
+    <p class="hint">78 张牌全部由 AI 为月光塔罗定制绘制。点击任意一张查看它的含义。</p>
+    <div id="gallery-grid"></div>
+  </section>
+
   <footer>
-    <p>🔮 每次 AI 解读仅需几分钱 API 费用。按次或包月收费 — 这就是生意。</p>
+    <p>🌙 月光塔罗 · 牌为你开门，路要你自己走。仅供娱乐与自我探索。</p>
   </footer>
 </main>
+
+<!-- 卡牌详情弹窗 -->
+<div id="card-modal" class="modal" hidden>
+  <div class="modal-card">
+    <button id="modal-close" class="modal-close" aria-label="关闭">✕</button>
+    <img id="modal-art" class="modal-art" alt="" />
+    <div class="modal-name" id="modal-name"></div>
+    <div class="modal-arcana hint" id="modal-arcana"></div>
+    <p class="modal-meaning" id="modal-up"></p>
+    <p class="modal-meaning" id="modal-rev"></p>
+  </div>
+</div>
 
 <script src="js/cards.js"></script>
 <script src="js/app.js"></script>

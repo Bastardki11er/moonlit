@@ -110,8 +110,7 @@ $("deck").addEventListener("click", () => {
   }
 });
 
-// suit glyphs for the card faces
-const SUIT_GLYPH = { major: "✦", Wands: "🔥", Cups: "🌊", Swords: "⚔️", Pentacles: "🪙" };
+// card faces now show the real painted artwork (img/cards/<id>.webp)
 
 function renderDrawnCard(card, reversed, position, index) {
   const slot = el("div", "draw-slot");
@@ -119,10 +118,16 @@ function renderDrawnCard(card, reversed, position, index) {
   const inner = el("div", "inner");
   const back = el("div", "face back", "🌙");
   const front = el("div", "face front" + (reversed ? " reversed-card" : ""));
-  front.appendChild(el("div", "glyph", SUIT_GLYPH[card.arcana === "major" ? "major" : card.suit] || "✦"));
-  front.appendChild(el("div", "cname", card.name));
-  front.appendChild(el("div", "arcana", card.arcana === "major" ? "大阿卡纳" : "小阿卡纳 · " + (SUIT_ZH[card.suit] || card.suit)));
-  front.appendChild(el("div", "orientation", reversed ? "逆位" : "正位 · " + position));
+  const art = document.createElement("img");
+  art.className = "card-art";
+  art.src = "img/cards/" + card.id + ".webp";
+  art.alt = card.name;
+  art.loading = "lazy";
+  front.appendChild(art);
+  const cap = el("div", "card-caption");
+  cap.appendChild(el("div", "cname", card.name));
+  cap.appendChild(el("div", "orientation", reversed ? "逆位" : "正位"));
+  front.appendChild(cap);
   inner.appendChild(back);
   inner.appendChild(front);
   wrap.appendChild(inner);
@@ -389,3 +394,64 @@ async function pollOrder(orderId) {
 
 $("pay-wechat").addEventListener("click", () => startPay("wechat"));
 $("pay-alipay").addEventListener("click", () => startPay("alipay"));
+
+/* ---------- 牌鉴 gallery: browse all 78 cards ---------- */
+const GALLERY_GROUPS = [
+  { key: "major", title: "大阿卡纳 · 22" },
+  { key: "Wands", title: "权杖 · 14" },
+  { key: "Cups", title: "圣杯 · 14" },
+  { key: "Swords", title: "宝剑 · 14" },
+  { key: "Pentacles", title: "星币 · 14" },
+];
+
+function buildGallery() {
+  const grid = $("gallery-grid");
+  if (!grid) return;
+  GALLERY_GROUPS.forEach((g) => {
+    grid.appendChild(el("h3", "gallery-group", g.title));
+    const row = el("div", "gallery-row");
+    TAROT_CARDS
+      .filter((c) => (c.arcana === "major" ? "major" : c.suit) === g.key)
+      .forEach((c) => {
+        const item = el("div", "gallery-item");
+        const img = document.createElement("img");
+        img.src = "img/cards/" + c.id + ".webp";
+        img.alt = c.name;
+        img.loading = "lazy";
+        item.appendChild(img);
+        item.appendChild(el("div", "gallery-name", c.name));
+        item.addEventListener("click", () => openCardModal(c));
+        row.appendChild(item);
+      });
+    grid.appendChild(row);
+  });
+}
+
+function openCardModal(c) {
+  const art = $("modal-art");
+  art.src = "img/cards/" + c.id + ".webp";
+  art.alt = c.name;
+  $("modal-name").textContent = c.name;
+  $("modal-arcana").textContent =
+    c.arcana === "major" ? "大阿卡纳" : "小阿卡纳 · " + (SUIT_ZH[c.suit] || c.suit);
+  $("modal-up").textContent = "正位 · " + c.upright;
+  $("modal-rev").textContent = "逆位 · " + c.reversed;
+  $("card-modal").hidden = false;
+  document.body.style.overflow = "hidden";
+}
+
+function closeCardModal() {
+  $("card-modal").hidden = true;
+  document.body.style.overflow = "";
+}
+
+if ($("card-modal")) {
+  $("modal-close").addEventListener("click", closeCardModal);
+  $("card-modal").addEventListener("click", (e) => {
+    if (e.target.id === "card-modal") closeCardModal();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeCardModal();
+  });
+  buildGallery();
+}

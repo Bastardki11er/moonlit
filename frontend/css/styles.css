@@ -8,8 +8,8 @@
   --purple: #8b7bd8;
   --text: #e8e4f5;
   --muted: #9a94b8;
-  --card-w: 110px;
-  --card-h: 190px;
+  --card-w: 120px;
+  --card-h: 180px; /* 2:3 — matches the painted card art exactly */
 }
 
 * { box-sizing: border-box; }
@@ -195,18 +195,35 @@ textarea:focus { outline: none; border-color: var(--gold); }
   pointer-events: none;
 }
 .face.front {
-  background:
-    radial-gradient(circle at 50% 20%, rgba(212,175,55,.25), transparent 55%),
-    linear-gradient(160deg, #f7f0da, #e3cfa0);
-  color: #2a2350; transform: rotateY(180deg);
+  background: #141126;
+  transform: rotateY(180deg);
   border: 2px solid var(--gold);
   box-shadow: inset 0 0 0 4px rgba(212,175,55,.35);
+  padding: 0;
+  overflow: hidden;
+  justify-content: flex-start;
 }
-.face.front .glyph { font-size: 1.5rem; margin-bottom: .25rem; filter: drop-shadow(0 2px 3px rgba(0,0,0,.2)); }
-.face.front .cname { font-size: .82rem; font-weight: bold; }
-.face.front .arcana { font-size: .68rem; color: #6b5fa8; margin-top: .3rem; font-family: Arial, sans-serif; }
-.face.front .orientation { font-size: .7rem; margin-top: .3rem; font-style: italic; }
-.face.front.reversed-card .cname, .face.front.reversed-card .glyph { transform: rotate(180deg); }
+.card-art {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+  transition: transform .5s ease;
+}
+.face.front.reversed-card .card-art { transform: rotate(180deg); }
+.card-caption {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(transparent, rgba(8,6,20,.94) 55%);
+  padding: 1.4rem .4rem .45rem;
+  pointer-events: none;
+}
+.face.front .cname {
+  color: var(--gold-soft); font-size: .78rem; font-weight: bold;
+  text-shadow: 0 1px 4px rgba(0,0,0,.8);
+}
+.face.front .orientation {
+  color: #cfc8ec; font-size: .68rem; margin-top: .15rem; font-style: italic;
+  font-family: Arial, sans-serif;
+  text-shadow: 0 1px 4px rgba(0,0,0,.8);
+}
+.face.front.reversed-card .orientation { color: #f0a8b8; }
 
 /* golden sparks that burst when a card is revealed */
 .spark {
@@ -253,8 +270,72 @@ textarea:focus { outline: none; border-color: var(--gold); }
 footer { text-align: center; color: var(--muted); font-size: .85rem; margin-top: 2.5rem; font-family: Arial, sans-serif; }
 
 @media (max-width: 520px) {
-  :root { --card-w: 92px; --card-h: 160px; }
+  :root { --card-w: 100px; --card-h: 150px; }
 }
+
+/* ---- 牌鉴 gallery ---- */
+.hero-badges { display: flex; gap: .6rem; justify-content: center; margin-top: .9rem; flex-wrap: wrap; }
+.hero-badges span {
+  font-size: .78rem; font-family: Arial, sans-serif; letter-spacing: 1px;
+  color: var(--gold-soft); border: 1px solid #3a3570; background: rgba(23,20,49,.7);
+  padding: .3rem .85rem; border-radius: 999px;
+}
+
+.gallery-group {
+  color: var(--gold-soft); font-size: 1rem; margin: 1.3rem 0 .7rem;
+  letter-spacing: 2px;
+}
+.gallery-group:first-child { margin-top: .6rem; }
+.gallery-row {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  gap: .7rem;
+}
+.gallery-item {
+  cursor: pointer; border-radius: 8px; overflow: hidden;
+  border: 1px solid #2c2760; background: #141126;
+  transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+}
+.gallery-item:hover {
+  transform: translateY(-4px); border-color: var(--gold);
+  box-shadow: 0 8px 20px rgba(212,175,55,.3);
+}
+.gallery-item img { width: 100%; aspect-ratio: 2/3; object-fit: cover; display: block; }
+.gallery-name {
+  font-size: .62rem; color: var(--muted); text-align: center;
+  padding: .3rem .15rem; font-family: Arial, sans-serif;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* ---- card detail modal ---- */
+.modal {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(8,6,18,.82); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center; padding: 1rem;
+}
+.modal[hidden] { display: none; }
+.modal-card {
+  position: relative; max-width: 340px; width: 100%; max-height: 92vh; overflow-y: auto;
+  background: var(--panel); border: 1px solid var(--gold); border-radius: 14px;
+  padding: 1.2rem; text-align: center;
+  animation: modalIn .3s cubic-bezier(.2,.8,.25,1);
+}
+@keyframes modalIn { from { transform: translateY(24px) scale(.96); opacity: 0; } }
+.modal-close {
+  position: absolute; top: .5rem; right: .7rem;
+  background: none; border: none; color: var(--muted);
+  font-size: 1.2rem; cursor: pointer; padding: .3rem;
+}
+.modal-close:hover { color: var(--gold); }
+.modal-art {
+  width: 180px; aspect-ratio: 2/3; object-fit: cover;
+  border-radius: 8px; border: 2px solid var(--gold);
+  box-shadow: 0 10px 30px rgba(0,0,0,.5);
+}
+.modal-name { color: var(--gold-soft); font-size: 1.3rem; margin: .8rem 0 .2rem; }
+.modal-arcana { margin-bottom: .6rem; }
+.modal-meaning { text-align: left; font-size: .92rem; line-height: 1.6; margin: .5rem 0; }
+#modal-up { color: var(--text); }
+#modal-rev { color: var(--muted); }
 
 .pay-methods{display:flex;gap:10px;justify-content:center;margin:12px 0}
 .pay-methods .cta{margin-top:0}
