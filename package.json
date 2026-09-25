@@ -2,7 +2,7 @@
   "dependencies": {
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
-    "better-sqlite3": "^13.0.3"
+    "better-sqlite3": "^12.4.1"
   },
   "description": "AI-powered tarot reading website",
   "main": "backend/server.js",
