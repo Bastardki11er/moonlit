@@ -23,7 +23,9 @@
 
 const express = require("express");
 const path = require("path");
-const userdb = require("./db"); // SQLite user database (users, readings, orders)
+// NOTE: the database needs async init (WebAssembly). userdb is assigned
+// at the bottom of this file before the server starts listening.
+let userdb = null;
 
 /* ---------- admin token: protects /api/admin/* ----------
    Set ADMIN_TOKEN in .env to something only you know. */
@@ -339,10 +341,17 @@ function extractQr(data) {
 }
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`🌙 Moonlit running at http://localhost:${PORT}`);
-  console.log(`   AI provider: ${process.env.AI_PROVIDER || "doubao"}`);
-  console.log(`   Free readings/day per visitor: ${FREE_PER_DAY}`);
-  console.log(`   XorPay: ${xorpayReady() ? "connected" : "not configured"}`);
-  console.log(`   Payments: ${PAYMENTS_ENABLED ? `ON — ¥${PRICE_CNY} for ${READINGS_PER_PACK} readings` : "OFF (free for everyone)"}`);
+// The DB (sql.js WebAssembly) must finish loading before we accept requests.
+require("./db").init().then((api) => {
+  userdb = api;
+  app.listen(PORT, () => {
+    console.log(`🌙 Moonlit running at http://localhost:${PORT}`);
+    console.log(`   AI provider: ${process.env.AI_PROVIDER || "doubao"}`);
+    console.log(`   Free readings/day per visitor: ${FREE_PER_DAY}`);
+    console.log(`   XorPay: ${xorpayReady() ? "connected" : "not configured"}`);
+    console.log(`   Payments: ${PAYMENTS_ENABLED ? `ON — ¥${PRICE_CNY} for ${READINGS_PER_PACK} readings` : "OFF (free for everyone)"}`);
+  });
+}).catch((e) => {
+  console.error("❌ Database failed to start:", e);
+  process.exit(1);
 });
