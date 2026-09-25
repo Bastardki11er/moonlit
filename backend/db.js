@@ -131,8 +131,11 @@ async function init() {
 /* ---------- users ---------- */
 
 // Get the user, or create a new one when the id is unknown/missing.
+// Security: only accept ids shaped like the UUIDs we issue. A forged or
+// garbage id is treated as "no id" (fresh user) instead of creating junk rows.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function getOrCreateUser(id) {
-  if (id) {
+  if (id && UUID_RE.test(id)) {
     const row = get("SELECT * FROM users WHERE id = ?", [id]);
     if (row) {
       run("UPDATE users SET last_seen_at = ? WHERE id = ?", [now(), id]);

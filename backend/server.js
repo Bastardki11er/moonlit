@@ -23,19 +23,52 @@
 
 const express = require("express");
 const path = require("path");
+const helmet = require("helmet");
+// Load .env FIRST — everything below reads process.env at startup.
+require("dotenv").config();
+const { rateLimit, adminBruteForceGuard } = require("./security");
+const { isValidUUID, validateReadingInput } = require("./validate");
 // NOTE: the database needs async init (WebAssembly). userdb is assigned
 // at the bottom of this file before the server starts listening.
 let userdb = null;
 
 /* ---------- admin token: protects /api/admin/* ----------
-   Set ADMIN_TOKEN in .env to something only you know. */
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "moonlit-admin-please-change";
-if (!process.env.ADMIN_TOKEN) {
-  console.warn("⚠️  ADMIN_TOKEN not set in .env — using default. Set your own!");
+   Set ADMIN_TOKEN in .env to something only you know.
+   Fail-safe: without a token, every admin API returns 503. */
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN || null;
+if (!ADMIN_TOKEN) {
+  console.error("❌ ADMIN_TOKEN not set in .env — /api/admin/* is DISABLED.");
 }
+const adminGuard = adminBruteForceGuard(); // 10 fails / 10 min -> block IP 1 hour
+
+/* ---------- rate limits (per IP) ----------
+   reading:   30/hour — bounds your Doubao API bill even if a bot
+               mints unlimited anonymous users.
+   user/init: 30/hour — slows mass fake-account creation.
+   auth:      20/10min — login/register brute-force protection.
+   admin:     60/min + the brute-force guard above.
+   checkout:  30/min.  notify: 60/min (XorPay retries). */
+const readingLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 30,
+  message: "占卜太频繁了，休息一下再来吧。" });
+const initLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 30,
+  message: "请求太频繁了，稍后再试。" });
+const authLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 20,
+  message: "尝试太频繁，稍后再试。" });
+const adminLimiter = rateLimit({ windowMs: 60 * 1000, max: 60,
+  message: "请求太频繁了，稍后再试。" });
+const checkoutLimiter = rateLimit({ windowMs: 60 * 1000, max: 30,
+  message: "请求太频繁了，稍后再试。" });
+const notifyLimiter = rateLimit({ windowMs: 60 * 1000, max: 60,
+  message: "Too many requests." });
 function checkAdmin(req, res, next) {
-  if (req.query.token === ADMIN_TOKEN || req.headers["x-admin-token"] === ADMIN_TOKEN) return next();
-  return res.status(403).json({ error: "Forbidden." });
+  if (!ADMIN_TOKEN) return res.status(503).json({ error: "Admin is not configured." });
+  const t = req.query.token || req.headers["x-admin-token"];
+  if (t && t === ADMIN_TOKEN) {
+    adminGuard.reset(req);
+    return next();
+  }
+  adminGuard.fail(req); // wrong/missing token counts toward a brute-force block
+  return res.status(401).json({ error: "Unauthorized." });
 }
 
 /* ---------- XorPay (WeChat Pay / Alipay for individuals) ----------
@@ -62,36 +95,67 @@ const READINGS_PER_PACK = parseInt(process.env.READINGS_PER_PACK || "10", 10);
    Set PAYMENTS_ENABLED=true in .env when you're ready to charge. */
 const PAYMENTS_ENABLED = process.env.PAYMENTS_ENABLED === "true";
 
-// Load secrets from the .env file (never commit .env to git!)
-require("dotenv").config();
-
 const app = express();
+/* Behind nginx on this machine: trust X-Forwarded-For only from loopback.
+   Direct public connections still use the real socket IP for rate limits. */
+app.set("trust proxy", "loopback");
+app.disable("x-powered-by");
+/* Security headers. CSP is off: /admin.html uses inline scripts. */
+app.use(helmet({ contentSecurityPolicy: false }));
+/* Body parsers FIRST so every route (incl. payment webhooks) sees req.body.
+   200kb cap: readings are small text; huge bodies are rejected. */
+app.use(express.json({ limit: "200kb" }));
+app.use(express.urlencoded({ extended: false })); // XorPay notify may be form-encoded
 
 /* XorPay payment notification: XorPay calls this URL after the visitor pays.
-   Protection: we only credit orders that WE created (orders table) —
-   a stranger cannot forge a payment for an order id they don't know. */
-app.post("/api/xorpay-notify", (req, res) => {
+   Protection layers:
+   1. Refused entirely while PAYMENTS_ENABLED=false.
+   2. Callback signature verified with XORPAY_SECRET (fail closed).
+   3. Only orders WE created (orders table) can be credited.
+   4. markOrderPaid is idempotent: a replayed callback can't double-credit. */
+function verifyXorpayNotify(p, secret) {
+  // ⚠️ Per XorPay's documented callback format. BEFORE enabling payments,
+  // run one real small payment end-to-end and confirm the callback passes.
+  // Failed verifications are rejected (logged only) — money is never lost,
+  // but the order would need manual review.
+  const { aoid, order_id, pay_price, pay_time, sign } = p || {};
+  if (!aoid || !order_id || !pay_price || !pay_time || !sign || !secret) return false;
+  const expect = crypto.createHash("md5")
+    .update(`${aoid}${order_id}${pay_price}${pay_time}${secret}`, "utf8")
+    .digest("hex");
+  try {
+    return crypto.timingSafeEqual(Buffer.from(sign), Buffer.from(expect));
+  } catch {
+    return false;
+  }
+}
+app.post("/api/xorpay-notify", notifyLimiter, (req, res) => {
+  // Defense in depth: never credit anything while payments are off.
+  if (!PAYMENTS_ENABLED || !xorpayReady()) return res.send("ok");
   const p = req.body || {};
-  console.log("XorPay notify received:", JSON.stringify(p));
   const orderId = p.order_id || p.orderId || p.out_trade_no;
-  if (orderId) {
-    const order = userdb.markOrderPaid(orderId);
-    if (order) {
-      if (order.user_id) userdb.addPaidReadings(order.user_id, order.readings);
-      console.log(`Order ${orderId} paid — credited ${order.readings} readings to user ${order.user_id}`);
+  if (!orderId || !verifyXorpayNotify(p, process.env.XORPAY_SECRET)) {
+    console.warn("XorPay notify rejected (bad signature):", orderId || "(no order id)");
+    return res.send("ok"); // always "ok" so XorPay stops retrying
+  }
+  const order = userdb.markOrderPaid(orderId);
+  if (order) {
+    // Amount sanity: ignore callbacks whose amount doesn't match our order.
+    if (p.pay_price && parseFloat(p.pay_price) !== order.amount) {
+      console.warn(`XorPay amount mismatch for ${orderId}: got ${p.pay_price}, want ${order.amount}`);
+      return res.send("ok");
     }
+    if (order.user_id) userdb.addPaidReadings(order.user_id, order.readings);
+    console.log(`Order ${orderId} paid — credited ${order.readings} readings to user ${order.user_id}`);
   }
   res.send("ok"); // XorPay expects "ok", otherwise it retries
 });
 
 /* The frontend polls this to learn when the QR payment succeeded. */
-app.get("/api/order-status", (req, res) => {
+app.get("/api/order-status", checkoutLimiter, (req, res) => {
   const orderId = req.query.orderId;
   res.json({ paid: !!orderId && userdb.orderPaid(orderId) });
 });
-
-app.use(express.json());
-app.use(express.urlencoded({ extended: false })); // XorPay notify may be form-encoded
 
 // Serve the frontend files
 app.use(express.static(path.join(__dirname, "..", "frontend")));
@@ -130,7 +194,7 @@ function resolveUser(req) {
 /* ---------- user identity ----------
    Called once when the site loads. Returns the visitor's permanent
    anonymous id — the frontend saves it in localStorage. */
-app.post("/api/user/init", (req, res) => {
+app.post("/api/user/init", initLimiter, (req, res) => {
   const user = resolveUser(req);
   res.json({
     userId: user.id,
@@ -158,22 +222,10 @@ app.get("/api/user/reading/:id", (req, res) => {
    as "Authorization: Bearer <token>". Login merges this device's
    anonymous history into the account, so nothing is lost. */
 
-// Tiny brute-force throttle for the auth endpoints (per IP, per minute).
-const authAttempts = new Map();
-function authThrottle(req, res, next) {
-  const ip = req.ip || "unknown";
-  const t = Date.now();
-  let e = authAttempts.get(ip);
-  if (!e || t > e.resetAt) e = { count: 0, resetAt: t + 60000 };
-  e.count += 1;
-  authAttempts.set(ip, e);
-  if (e.count > 20) return res.status(429).json({ error: "尝试太频繁，稍后再试。" });
-  next();
-}
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-app.post("/api/auth/register", authThrottle, (req, res) => {
+app.post("/api/auth/register", authLimiter, (req, res) => {
   const { email, password, userId } = req.body || {};
   if (!email || !EMAIL_RE.test(String(email))) {
     return res.status(400).json({ error: "请输入有效的邮箱地址。" });
@@ -192,7 +244,7 @@ app.post("/api/auth/register", authThrottle, (req, res) => {
   res.json({ token, email: acc.email, userId: user.id });
 });
 
-app.post("/api/auth/login", authThrottle, (req, res) => {
+app.post("/api/auth/login", authLimiter, (req, res) => {
   const { email, password, userId } = req.body || {};
   if (!email || !password) {
     return res.status(400).json({ error: "请输入邮箱和密码。" });
@@ -230,10 +282,10 @@ app.get("/api/auth/me", (req, res) => {
 
 /* ---------- admin dashboard (token protected) ----------
    Open /admin.html on your server and enter your ADMIN_TOKEN. */
-app.get("/api/admin/stats", checkAdmin, (req, res) => {
+app.get("/api/admin/stats", adminLimiter, adminGuard.check, checkAdmin, (req, res) => {
   res.json(userdb.getStats());
 });
-app.get("/api/admin/recent", checkAdmin, (req, res) => {
+app.get("/api/admin/recent", adminLimiter, adminGuard.check, checkAdmin, (req, res) => {
   res.json({
     readings: userdb.recentReadings(20),
     users: userdb.recentUsers(20),
@@ -343,12 +395,14 @@ async function askAI(prompt) {
 }
 
 /* ---------- the reading endpoint ---------- */
-app.post("/api/reading", async (req, res) => {
+app.post("/api/reading", readingLimiter, async (req, res) => {
   try {
-    const { question, spread, cards } = req.body || {};
-    if (!question || !Array.isArray(cards) || cards.length === 0) {
-      return res.status(400).json({ error: "Missing question or cards." });
-    }
+    // Never trust the client: validate everything, and rebuild card
+    // names/meanings from OUR data (looked up by card id) so a forged
+    // request can't inject instructions into the AI prompt.
+    const v = validateReadingInput(req.body);
+    if (!v.ok) return res.status(400).json({ error: v.error });
+    const { question, spread, cards } = v.clean;
 
     // --- payment check (skipped while PAYMENTS_ENABLED=false: free for all) ---
     const user = resolveUser(req);
@@ -392,7 +446,10 @@ app.post("/api/reading", async (req, res) => {
    Creates an order at XorPay and returns a QR code for the visitor to scan
    with WeChat / Alipay. The frontend polls /api/order-status until paid,
    then XorPay's notify credits the buyer automatically. */
-app.post("/api/checkout", async (req, res) => {
+app.post("/api/checkout", checkoutLimiter, async (req, res) => {
+  if (!PAYMENTS_ENABLED) {
+    return res.status(403).json({ error: "Payments are disabled." });
+  }
   if (!xorpayReady()) {
     return res.status(500).json({ error: "Payments are not configured yet." });
   }
@@ -432,6 +489,17 @@ function extractQr(data) {
   if (!hit) return null;
   return { type: hit.startsWith("http") ? "image" : "data", value: hit };
 }
+
+/* Unknown API routes -> JSON 404 (not Express's HTML page). */
+app.use("/api", (req, res) => res.status(404).json({ error: "Not found." }));
+
+/* Last resort: log the real error on the server, send visitors a safe message.
+   Never leaks stack traces, file paths, keys, or DB details. */
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  console.error("Unhandled error:", err && err.message ? err.message : err);
+  res.status(500).json({ error: "服务器开小差了，稍后再试。" });
+});
 
 const PORT = process.env.PORT || 3000;
 // The DB (sql.js WebAssembly) must finish loading before we accept requests.
