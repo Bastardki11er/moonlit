@@ -20,7 +20,8 @@ const SPREADS = {
 };
 
 // suit names in Chinese (card names stay in English — tarot tradition)
-const SUIT_ZH = { Wands: "权杖", Cups: "圣杯", Swords: "宝剑", Pentacles: "星币" };
+// NOTE: cards.js stores suit in lowercase ("wands"), so keys here are lowercase too.
+const SUIT_ZH = { wands: "权杖", cups: "圣杯", swords: "宝剑", pentacles: "星币" };
 
 let state = { question: "", spreadKey: null, deck: [], drawn: [] };
 
@@ -429,10 +430,10 @@ $("pay-alipay").addEventListener("click", () => startPay("alipay"));
 /* ---------- 牌鉴 gallery: browse all 78 cards ---------- */
 const GALLERY_GROUPS = [
   { key: "major", title: "大阿卡纳 · 22" },
-  { key: "Wands", title: "权杖 · 14" },
-  { key: "Cups", title: "圣杯 · 14" },
-  { key: "Swords", title: "宝剑 · 14" },
-  { key: "Pentacles", title: "星币 · 14" },
+  { key: "wands", title: "权杖 · 14" },
+  { key: "cups", title: "圣杯 · 14" },
+  { key: "swords", title: "宝剑 · 14" },
+  { key: "pentacles", title: "星币 · 14" },
 ];
 
 function buildGallery() {
