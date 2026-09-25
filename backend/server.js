@@ -102,7 +102,12 @@ function freeReadingsLeft(ip) {
   return FREE_PER_DAY - rec.count;
 }
 function countReading(ip) {
-  const rec = usage.get(ip);
+  const today = new Date().toISOString().slice(0, 10);
+  let rec = usage.get(ip);
+  if (!rec || rec.date !== today) {
+    rec = { date: today, count: 0 };
+    usage.set(ip, rec);
+  }
   rec.count += 1;
 }
 
@@ -162,7 +167,10 @@ async function askAI(prompt) {
         messages: [{ role: "user", content: prompt }],
       }),
     });
-    if (!res.ok) throw new Error("Doubao API error " + res.status);
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new Error(`Doubao API error ${res.status}: ${body.slice(0, 300)}`);
+    }
     const data = await res.json();
     return data.choices[0].message.content;
   }
