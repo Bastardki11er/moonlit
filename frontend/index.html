@@ -17,6 +17,11 @@
     <span>🃏 78 张定制牌面</span>
     <span>✨ AI 中文解读</span>
   </div>
+  <nav class="topnav">
+    <button id="nav-start" class="navbtn">🔮 开始占卜</button>
+    <button id="nav-history" class="navbtn">📜 我的记录 <span id="history-count" class="count-badge" hidden></span></button>
+    <a href="#gallery" class="navbtn linkbtn">🖼 牌鉴</a>
+  </nav>
   <div id="demo-badge" class="demo-badge" hidden>演示模式 — 示例解读</div>
 </header>
 
@@ -79,6 +84,14 @@
       </div>
     </div>
     <button id="restart" class="ghost">再问一个问题</button>
+  </section>
+
+  <!-- 我的记录：历史解读 -->
+  <section id="step-history" class="panel" hidden>
+    <h2>📜 我的解读记录</h2>
+    <p class="hint">记录保存在你的账号下（这台设备的浏览器）。点击一条展开完整解读。</p>
+    <div id="history-list"></div>
+    <button id="history-close" class="ghost">关闭</button>
   </section>
 
   <!-- 牌鉴：浏览全部 78 张牌 -->

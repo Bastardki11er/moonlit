@@ -1,3 +1,6 @@
 # Secrets and junk — never upload these to GitHub
 node_modules/
 .env
+*.db
+*.db-wal
+*.db-shm

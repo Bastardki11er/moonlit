@@ -23,6 +23,18 @@
 
 const express = require("express");
 const path = require("path");
+const userdb = require("./db"); // SQLite user database (users, readings, orders)
+
+/* ---------- admin token: protects /api/admin/* ----------
+   Set ADMIN_TOKEN in .env to something only you know. */
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "moonlit-admin-please-change";
+if (!process.env.ADMIN_TOKEN) {
+  console.warn("⚠️  ADMIN_TOKEN not set in .env — using default. Set your own!");
+}
+function checkAdmin(req, res, next) {
+  if (req.query.token === ADMIN_TOKEN || req.headers["x-admin-token"] === ADMIN_TOKEN) return next();
+  return res.status(403).json({ error: "Forbidden." });
+}
 
 /* ---------- XorPay (WeChat Pay / Alipay for individuals) ----------
    Sign up at https://xorpay.com, finish 实名审核, get your aid + secret.
@@ -37,14 +49,11 @@ function xorpayReady() {
   return !!(process.env.XORPAY_AID && process.env.XORPAY_SECRET);
 }
 
-/* ---------- Paid reading packs: ip -> number of paid readings left.
-   (A real business would use a database; this Map is for learning.
-   It resets when the server restarts.) */
-const paidPacks = new Map();
+/* ---------- Paid reading packs now live in the database ----------
+   users.paid_readings — survives server restarts, tied to the
+   visitor's user id instead of their IP address. */
 
-/* ---------- Orders: orderId -> { ip, created }; paid order ids ---------- */
-const pendingOrders = new Map();
-const paidOrders = new Set();
+/* ---------- Orders now live in the database (orders table) ---------- */
 const PRICE_CNY = parseFloat(process.env.PRICE_CNY || "9.9");
 const READINGS_PER_PACK = parseInt(process.env.READINGS_PER_PACK || "10", 10);
 /* Charging is OFF by default: everyone gets unlimited free readings.
@@ -57,18 +66,18 @@ require("dotenv").config();
 const app = express();
 
 /* XorPay payment notification: XorPay calls this URL after the visitor pays.
-   Protection: we only credit orders that WE created (pendingOrders) —
+   Protection: we only credit orders that WE created (orders table) —
    a stranger cannot forge a payment for an order id they don't know. */
 app.post("/api/xorpay-notify", (req, res) => {
   const p = req.body || {};
   console.log("XorPay notify received:", JSON.stringify(p));
   const orderId = p.order_id || p.orderId || p.out_trade_no;
-  if (orderId && pendingOrders.has(orderId)) {
-    const { ip } = pendingOrders.get(orderId);
-    paidPacks.set(ip, (paidPacks.get(ip) || 0) + READINGS_PER_PACK);
-    pendingOrders.delete(orderId);
-    paidOrders.add(orderId);
-    console.log(`Order ${orderId} paid — credited ${READINGS_PER_PACK} readings`);
+  if (orderId) {
+    const order = userdb.markOrderPaid(orderId);
+    if (order) {
+      if (order.user_id) userdb.addPaidReadings(order.user_id, order.readings);
+      console.log(`Order ${orderId} paid — credited ${order.readings} readings to user ${order.user_id}`);
+    }
   }
   res.send("ok"); // XorPay expects "ok", otherwise it retries
 });
@@ -76,7 +85,7 @@ app.post("/api/xorpay-notify", (req, res) => {
 /* The frontend polls this to learn when the QR payment succeeded. */
 app.get("/api/order-status", (req, res) => {
   const orderId = req.query.orderId;
-  res.json({ paid: !!orderId && paidOrders.has(orderId) });
+  res.json({ paid: !!orderId && userdb.orderPaid(orderId) });
 });
 
 app.use(express.json());
@@ -85,31 +94,56 @@ app.use(express.urlencoded({ extended: false })); // XorPay notify may be form-e
 // Serve the frontend files
 app.use(express.static(path.join(__dirname, "..", "frontend")));
 
-/* ---------- simple free-reading limit (your first paywall) ----------
-   Each visitor (by IP address) gets a few free readings per day.
-   After that, the API says "payment required" — later you connect
-   this to Stripe so paying unlocks more readings. */
+/* ---------- free-reading limit (your first paywall) ----------
+   Each visitor (by user id, stored in their browser) gets a few
+   free readings per day. After that, the API says "payment required".
+   Usage is tracked in the database (daily_usage table). */
 const FREE_PER_DAY = parseInt(process.env.FREE_READINGS_PER_DAY || "3", 10);
-const usage = new Map(); // ip -> { date: "2026-09-24", count: 2 }
 
-function freeReadingsLeft(ip) {
-  const today = new Date().toISOString().slice(0, 10);
-  const rec = usage.get(ip);
-  if (!rec || rec.date !== today) {
-    usage.set(ip, { date: today, count: 0 });
-    return FREE_PER_DAY;
-  }
-  return FREE_PER_DAY - rec.count;
+/* Resolve the visitor to a user row. The frontend sends the id it got
+   from /api/user/init (stored in localStorage). Unknown/missing id ->
+   a brand-new anonymous user is created and its id returned. */
+function resolveUser(req) {
+  const id = (req.body && req.body.userId) || req.headers["x-user-id"] || req.query.userId;
+  return userdb.getOrCreateUser(id);
 }
-function countReading(ip) {
-  const today = new Date().toISOString().slice(0, 10);
-  let rec = usage.get(ip);
-  if (!rec || rec.date !== today) {
-    rec = { date: today, count: 0 };
-    usage.set(ip, rec);
-  }
-  rec.count += 1;
-}
+
+/* ---------- user identity ----------
+   Called once when the site loads. Returns the visitor's permanent
+   anonymous id — the frontend saves it in localStorage. */
+app.post("/api/user/init", (req, res) => {
+  const user = userdb.getOrCreateUser(req.body && req.body.userId);
+  res.json({
+    userId: user.id,
+    readingsTotal: user.readings_total,
+    paidReadings: user.paid_readings,
+    freeLeft: userdb.freeLeftToday(user.id, FREE_PER_DAY),
+  });
+});
+
+/* ---------- reading history for "我的记录" ---------- */
+app.get("/api/user/readings", (req, res) => {
+  const user = userdb.getOrCreateUser(req.query.userId);
+  res.json({ readings: userdb.getReadings(user.id, 30) });
+});
+app.get("/api/user/reading/:id", (req, res) => {
+  const user = userdb.getOrCreateUser(req.query.userId);
+  const r = userdb.getReadingDetail(user.id, req.params.id);
+  if (!r) return res.status(404).json({ error: "Not found." });
+  res.json({ reading: r });
+});
+
+/* ---------- admin dashboard (token protected) ----------
+   Open /admin.html on your server and enter your ADMIN_TOKEN. */
+app.get("/api/admin/stats", checkAdmin, (req, res) => {
+  res.json(userdb.getStats());
+});
+app.get("/api/admin/recent", checkAdmin, (req, res) => {
+  res.json({
+    readings: userdb.recentReadings(20),
+    users: userdb.recentUsers(20),
+  });
+});
 
 /* ============================================================
    THE PROMPT — this is your real product.
@@ -222,26 +256,36 @@ app.post("/api/reading", async (req, res) => {
     }
 
     // --- payment check (skipped while PAYMENTS_ENABLED=false: free for all) ---
-    const ip = req.ip;
+    const user = resolveUser(req);
     let usedPaidPack = false;
     if (PAYMENTS_ENABLED) {
-      if ((paidPacks.get(ip) || 0) > 0) {
+      if (userdb.usePaidReading(user.id)) {
         usedPaidPack = true; // they bought readings — let them in
-      } else if (freeReadingsLeft(ip) <= 0) {
+      } else if (userdb.freeLeftToday(user.id, FREE_PER_DAY) <= 0) {
         // No paid readings and no free readings left -> paywall
         return res.status(402).json({
           error: `Free readings used up for today. Unlock ${READINGS_PER_PACK} more for ¥${PRICE_CNY} ✨`,
           paymentRequired: true,
+          userId: user.id,
         });
       }
     }
 
     const prompt = buildPrompt(question, spread || "Tarot spread", cards);
     const reading = await askAI(prompt);
-    if (usedPaidPack) paidPacks.set(ip, paidPacks.get(ip) - 1);
-    else countReading(ip);
 
-    res.json({ reading });
+    // --- save to the user's history + count today's usage ---
+    const readingId = userdb.saveReading(user.id, {
+      question, spread: spread || "Tarot spread", cards, readingText: reading,
+    });
+    if (!usedPaidPack) userdb.countReadingToday(user.id);
+
+    res.json({
+      reading,
+      readingId,
+      userId: user.id,
+      freeLeft: userdb.freeLeftToday(user.id, FREE_PER_DAY),
+    });
   } catch (err) {
     console.error("Reading failed:", err.message);
     res.status(500).json({ error: "The AI could not answer right now. Try again." });
@@ -259,6 +303,7 @@ app.post("/api/checkout", async (req, res) => {
   }
   const payType = req.body && req.body.method === "alipay" ? "alipay" : "wechat";
   const orderId = "moonlit-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8);
+  const user = resolveUser(req); // link the order to this visitor
   const name = `Moonlit ${READINGS_PER_PACK} Tarot Readings`;
   const notifyUrl = (process.env.BASE_URL || "").replace(/\/$/, "") + "/api/xorpay-notify";
   const price = PRICE_CNY.toFixed(2);
@@ -271,7 +316,7 @@ app.post("/api/checkout", async (req, res) => {
     const r = await fetch(url, { method: "POST" });
     const data = await r.json();
     console.log("XorPay create-order response:", JSON.stringify(data).slice(0, 500));
-    pendingOrders.set(orderId, { ip: req.ip, created: Date.now() });
+    userdb.createOrder(orderId, user.id, parseFloat(price), READINGS_PER_PACK);
     res.json({ orderId, price, xorpayload: data, qr: extractQr(data) });
   } catch (err) {
     console.error("XorPay checkout failed:", err.message);

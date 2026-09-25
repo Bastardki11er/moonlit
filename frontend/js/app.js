@@ -24,6 +24,28 @@ const SUIT_ZH = { Wands: "权杖", Cups: "圣杯", Swords: "宝剑", Pentacles: 
 
 let state = { question: "", spreadKey: null, deck: [], drawn: [] };
 
+// ---------- user identity ----------
+// Every visitor gets a permanent anonymous id (stored in localStorage).
+// The backend creates a user row + saves all their readings under it.
+// No signup, no password — zero friction for new visitors.
+let moonlitUserId = null;
+
+async function initUser() {
+  try {
+    const stored = localStorage.getItem("moonlit_uid");
+    const res = await fetch("/api/user/init", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: stored }),
+    });
+    const data = await res.json();
+    moonlitUserId = data.userId;
+    localStorage.setItem("moonlit_uid", moonlitUserId);
+    updateHistoryBadge();
+  } catch (e) { /* offline — readings still work, just not saved */ }
+}
+initUser();
+
 // ---------- helpers ----------
 const $ = (id) => document.getElementById(id);
 
@@ -231,14 +253,16 @@ $("get-reading").addEventListener("click", async () => {
   box.textContent = "牌正在诉说… 🔮";
 
   try {
-    const text = DEMO_MODE ? makeSampleReading() : await fetchRealReading();
+    const result = DEMO_MODE ? { text: makeSampleReading() } : await fetchRealReading();
     box.classList.remove("loading");
-    box.textContent = text;
+    box.textContent = result.text;
     const note = $("reading-note");
     note.hidden = false;
     note.textContent = DEMO_MODE
       ? "示例解读（演示模式）。在后端接入 AI API Key 后，即可获得真正的个人化解读。"
-      : "AI 根据你的问题和牌面生成的解读。";
+      : "AI 根据你的问题和牌面生成的解读。" +
+        (typeof result.freeLeft === "number" && result.freeLeft <= 1
+          ? "（今天还剩 " + result.freeLeft + " 次免费解读）" : "");
   } catch (err) {
     box.classList.remove("loading");
     if (err.code === 402) {
@@ -259,6 +283,7 @@ async function fetchRealReading() {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
+      userId: moonlitUserId,
       question: state.question,
       spread: SPREADS[state.spreadKey].name,
       cards: state.drawn.map((d) => ({
@@ -276,7 +301,13 @@ async function fetchRealReading() {
   }
   if (!res.ok) throw new Error("API error " + res.status);
   const data = await res.json();
-  return data.reading;
+  // backend may have created the user for us — keep the id in sync
+  if (data.userId && data.userId !== moonlitUserId) {
+    moonlitUserId = data.userId;
+    localStorage.setItem("moonlit_uid", moonlitUserId);
+  }
+  updateHistoryBadge();
+  return { text: data.reading, freeLeft: data.freeLeft };
 }
 
 /* Sample reading generator for DEMO MODE.
@@ -333,7 +364,7 @@ async function startPay(method) {
     const res = await fetch("/api/checkout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ method }),
+      body: JSON.stringify({ method, userId: moonlitUserId }),
     });
     const data = await res.json();
     if (data.error) throw new Error(data.error);
@@ -455,3 +486,96 @@ if ($("card-modal")) {
   });
   buildGallery();
 }
+
+/* ---------- 我的记录：reading history ----------
+   Every reading is saved server-side under the visitor's user id.
+   This panel lists them; clicking one expands the full text. */
+async function updateHistoryBadge() {
+  const badge = $("history-count");
+  if (!badge || !moonlitUserId) return;
+  try {
+    const res = await fetch("/api/user/readings?userId=" + encodeURIComponent(moonlitUserId));
+    const data = await res.json();
+    const n = (data.readings || []).length;
+    badge.hidden = n === 0;
+    badge.textContent = n > 99 ? "99+" : String(n);
+  } catch (e) { /* ignore */ }
+}
+
+let historyReturnTo = "step-question";
+
+async function openHistory() {
+  // remember where we were, so closing history restores it
+  historyReturnTo = !$("step-reading").hidden ? "step-reading"
+    : !$("step-draw").hidden ? "step-draw" : "step-question";
+  // hide the flow panels, show history
+  $("step-question").hidden = true;
+  $("step-draw").hidden = true;
+  $("step-reading").hidden = true;
+  const panel = $("step-history");
+  panel.hidden = false;
+  panel.scrollIntoView({ behavior: "smooth" });
+
+  const list = $("history-list");
+  list.innerHTML = "<p class='hint'>加载中…</p>";
+  try {
+    const res = await fetch("/api/user/readings?userId=" + encodeURIComponent(moonlitUserId || ""));
+    const data = await res.json();
+    const items = data.readings || [];
+    list.innerHTML = "";
+    if (items.length === 0) {
+      list.innerHTML = "<p class='hint'>还没有解读记录。问一个问题，抽一次牌，这里就会出现你的历史 ✨</p>";
+      return;
+    }
+    items.forEach((r) => {
+      const details = el("details", "history-item");
+      const date = new Date(r.created_at).toLocaleString("zh-CN", { hour12: false });
+      const summary = el("summary", null,
+        "<span class='history-q'>" + escapeHtml(r.question) + "</span>" +
+        "<span class='history-meta'>" + escapeHtml(r.spread || "") + " · " + date + "</span>");
+      const body = el("div", "history-body");
+      body.innerHTML = "<p class='hint'>加载中…</p>";
+      details.appendChild(summary);
+      details.appendChild(body);
+      details.addEventListener("toggle", async () => {
+        if (!details.open || body.dataset.loaded) return;
+        try {
+          const rr = await fetch("/api/user/reading/" + r.id +
+            "?userId=" + encodeURIComponent(moonlitUserId || ""));
+          const dd = await rr.json();
+          const full = dd.reading;
+          const cardNames = full.cards.map((c) =>
+            escapeHtml(c.position + " · " + c.name + (c.orientation === "reversed" ? "（逆位）" : ""))).join("<br>");
+          body.innerHTML =
+            "<div class='history-cards'>" + cardNames + "</div>" +
+            "<div class='reading'>" + escapeHtml(full.reading_text).replace(/\n/g, "<br>") + "</div>";
+          body.dataset.loaded = "1";
+        } catch (e) {
+          body.innerHTML = "<p class='hint'>加载失败，请重试。</p>";
+        }
+      });
+      list.appendChild(details);
+    });
+  } catch (e) {
+    list.innerHTML = "<p class='hint'>加载失败，请检查网络后重试。</p>";
+  }
+}
+
+function closeHistory() {
+  $("step-history").hidden = true;
+  $(historyReturnTo).hidden = false;
+  $(historyReturnTo).scrollIntoView({ behavior: "smooth" });
+}
+
+$("nav-history").addEventListener("click", openHistory);
+$("history-close").addEventListener("click", closeHistory);
+$("nav-start").addEventListener("click", () => {
+  // fresh start: leave history, reset to the question step
+  $("step-history").hidden = true;
+  $("step-draw").hidden = true;
+  $("step-reading").hidden = true;
+  $("step-question").hidden = false;
+  historyReturnTo = "step-question";
+  $("question").focus();
+  $("step-question").scrollIntoView({ behavior: "smooth" });
+});
