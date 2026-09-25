@@ -43,9 +43,10 @@
 
   <!-- 第三步：抽牌 -->
   <section id="step-draw" class="panel" hidden>
-    <h2>第三步 · 抽 <span id="draw-count"></span></h2>
-    <p class="hint">点击牌堆抽牌，点击每张牌翻面。</p>
+    <h2>第三步 · 抽 <span id="draw-count"></span> <span id="draw-progress" class="draw-progress"></span></h2>
+    <p class="hint" id="draw-hint">点击牌堆抽牌，点击每张牌翻面。</p>
     <div class="table">
+      <div class="draw-fx" id="draw-fx"></div>
       <div id="deck" class="deck" title="点击抽牌">
         <div class="deck-card"></div>
         <span id="deck-left"></span>

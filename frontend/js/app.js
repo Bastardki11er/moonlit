@@ -73,6 +73,18 @@ function startSpread(spreadKey) {
   $("step-draw").hidden = false;
   $("step-reading").hidden = true;
   $("step-draw").scrollIntoView({ behavior: "smooth" });
+  // shuffle ritual: the deck jitters like it's being shuffled, then breathes to invite a draw
+  const deckEl = $("deck");
+  deckEl.classList.remove("inviting");
+  deckEl.classList.add("shuffling");
+  $("draw-hint").textContent = "正在洗牌… 🔮";
+  $("draw-progress").textContent = "";
+  seedMotes();
+  setTimeout(() => {
+    deckEl.classList.remove("shuffling");
+    deckEl.classList.add("inviting");
+    $("draw-hint").textContent = "点击牌堆抽牌，点击每张牌翻面。";
+  }, 1000);
 }
 
 function updateDeckCount() {
@@ -89,18 +101,25 @@ $("deck").addEventListener("click", () => {
   const position = spread.positions[state.drawn.length];
   state.drawn.push({ card, reversed, position });
   updateDeckCount();
-  renderDrawnCard(card, reversed, position);
+  renderDrawnCard(card, reversed, position, state.drawn.length - 1);
+  $("draw-progress").textContent = "（" + state.drawn.length + "/" + spread.count + "）";
 
   if (state.drawn.length === spread.count) {
-    setTimeout(showReadingStep, 600);
+    $("deck").classList.remove("inviting");
+    setTimeout(showReadingStep, 900);
   }
 });
 
-function renderDrawnCard(card, reversed, position) {
+// suit glyphs for the card faces
+const SUIT_GLYPH = { major: "✦", Wands: "🔥", Cups: "🌊", Swords: "⚔️", Pentacles: "🪙" };
+
+function renderDrawnCard(card, reversed, position, index) {
+  const slot = el("div", "draw-slot");
   const wrap = el("div", "tarot-card");
   const inner = el("div", "inner");
   const back = el("div", "face back", "🌙");
   const front = el("div", "face front" + (reversed ? " reversed-card" : ""));
+  front.appendChild(el("div", "glyph", SUIT_GLYPH[card.arcana === "major" ? "major" : card.suit] || "✦"));
   front.appendChild(el("div", "cname", card.name));
   front.appendChild(el("div", "arcana", card.arcana === "major" ? "大阿卡纳" : "小阿卡纳 · " + (SUIT_ZH[card.suit] || card.suit)));
   front.appendChild(el("div", "orientation", reversed ? "逆位" : "正位 · " + position));
@@ -108,10 +127,77 @@ function renderDrawnCard(card, reversed, position) {
   inner.appendChild(front);
   wrap.appendChild(inner);
   wrap.title = position + " — 点击翻牌";
-  wrap.addEventListener("click", () => wrap.classList.add("revealed"));
-  $("drawn").appendChild(wrap);
-  // auto-flip the newest card after a beat so it feels alive
-  setTimeout(() => wrap.classList.add("revealed"), 350);
+  slot.appendChild(wrap);
+  slot.appendChild(el("div", "pos-tag", position));
+  $("drawn").appendChild(slot);
+
+  // deal flight: the card visibly flies out of the deck into its slot
+  const deckR = $("deck").getBoundingClientRect();
+  const slotR = slot.getBoundingClientRect();
+  const dx = deckR.left + deckR.width / 2 - (slotR.left + slotR.width / 2);
+  const dy = deckR.top + deckR.height / 2 - (slotR.top + slotR.height / 2);
+  slot.style.transition = "none";
+  slot.style.transform = "translate(" + dx + "px," + dy + "px) scale(.6) rotate(-6deg)";
+  slot.style.opacity = "0";
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    slot.style.transition = "transform .55s cubic-bezier(.2,.8,.25,1), opacity .4s ease";
+    slot.style.transform = "";
+    slot.style.opacity = "1";
+    slot.addEventListener("transitionend", function h(e) {
+      if (e.propertyName !== "transform") return;
+      slot.removeEventListener("transitionend", h);
+      slot.style.transition = ""; slot.style.transform = ""; slot.style.opacity = "";
+    });
+  }));
+
+  const reveal = () => {
+    if (wrap.classList.contains("revealed")) return;
+    wrap.classList.add("revealed");
+    sparkBurst(wrap.getBoundingClientRect());
+  };
+  wrap.addEventListener("click", reveal);
+  // auto-flip with a stagger so it feels alive
+  setTimeout(reveal, 450 + index * 220);
+}
+
+// golden sparks that burst outward when a card is revealed
+function sparkBurst(rect) {
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  for (let i = 0; i < 16; i++) {
+    const s = document.createElement("span");
+    s.className = "spark";
+    s.style.left = cx + "px";
+    s.style.top = cy + "px";
+    document.body.appendChild(s);
+    const ang = Math.random() * Math.PI * 2;
+    const dist = 46 + Math.random() * 80;
+    const ddx = Math.cos(ang) * dist, ddy = Math.sin(ang) * dist;
+    s.animate(
+      [
+        { transform: "translate(-50%,-50%) scale(1)", opacity: 1 },
+        { transform: "translate(calc(-50% + " + ddx + "px), calc(-50% + " + ddy + "px)) scale(.1)", opacity: 0 },
+      ],
+      { duration: 550 + Math.random() * 450, easing: "cubic-bezier(.2,.7,.3,1)" }
+    ).onfinish = () => s.remove();
+  }
+}
+
+// floating golden dust in the card table
+function seedMotes() {
+  const fx = $("draw-fx");
+  if (!fx) return;
+  fx.innerHTML = "";
+  for (let i = 0; i < 28; i++) {
+    const m = el("span", "mote");
+    const size = 2 + Math.random() * 4;
+    m.style.width = m.style.height = size.toFixed(0) + "px";
+    m.style.left = (Math.random() * 100).toFixed(1) + "%";
+    m.style.top = (15 + Math.random() * 80).toFixed(1) + "%";
+    m.style.animationDuration = (6 + Math.random() * 9).toFixed(1) + "s";
+    m.style.animationDelay = (-Math.random() * 12).toFixed(1) + "s";
+    fx.appendChild(m);
+  }
 }
 
 function showReadingStep() {
