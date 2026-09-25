@@ -335,10 +335,10 @@ $("get-reading").addEventListener("click", async () => {
       box.hidden = true;
       $("paywall").hidden = false;
       btn.disabled = false;
-      btn.textContent = "✨ 获取 AI 解读";
+      btn.textContent = "✨ 获取解读";
       return;
     }
-    box.textContent = "AI 连接失败，请重试。";
+    box.textContent = "连接失败，请重试。";
     btn.disabled = false;
   }
 });
@@ -405,8 +405,8 @@ function updateReadingNote(freeLeft) {
   const note = $("reading-note");
   note.hidden = false;
   note.textContent = DEMO_MODE
-    ? "示例解读（演示模式）。在后端接入 AI API Key 后，即可获得真正的个人化解读。"
-    : "AI 根据你的问题和牌面生成的解读。" +
+    ? "示例解读（演示模式）。"
+    : "月光塔罗根据你的问题和牌面生成的解读。" +
       (typeof freeLeft === "number" && freeLeft <= 1
         ? "（今天还剩 " + freeLeft + " 次免费解读）" : "");
 }
@@ -461,7 +461,7 @@ $("followup-send").addEventListener("click", async () => {
     updateReadingNote(data.freeLeft);
     updateHistoryBadge();
   } catch (err) {
-    alert(err.message || "AI 连接失败，请重试。");
+    alert(err.message || "连接失败，请重试。");
   }
   btn.disabled = false;
   btn.textContent = old;
@@ -990,7 +990,7 @@ $("share-reading").addEventListener("click", async () => {
         reversed: d.reversed,
       })),
       bodyText: lastReadingText,
-      footer: "🌙 月光塔罗 · AI 中文解读",
+      footer: "🌙 月光塔罗 · 中文塔罗占卜",
     });
     openShareModal(canvas);
   } catch (e) {

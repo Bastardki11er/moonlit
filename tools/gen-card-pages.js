@@ -91,7 +91,7 @@ function buildPage(card, zh, prev, next, related) {
   const title = `${zh} ${card.name} 塔罗牌含义_正位逆位详解 | 月光塔罗`;
   const desc =
     `${zh}(${card.name})塔罗牌含义详解：正位${short(card.upright, 14)}；` +
-    `逆位${short(card.reversed, 14)}。月光塔罗AI免费在线占卜。`;
+    `逆位${short(card.reversed, 14)}。月光塔罗免费在线占卜。`;
   const keywords =
     `${zh},${card.name},塔罗牌${zh},塔罗牌含义,${zh}正位,${zh}逆位,${label}牌义,月光塔罗,在线占卜`;
 
@@ -199,7 +199,7 @@ function buildPage(card, zh, prev, next, related) {
         <h2>🌙 逆位含义</h2>
         <p>${esc(card.reversed)}</p>
       </section>
-      <a class="cta" href="/">🔮 免费AI占卜</a>
+      <a class="cta" href="/">🔮 免费占卜</a>
     </div>
   </article>
 
@@ -216,7 +216,7 @@ function buildPage(card, zh, prev, next, related) {
 
   <footer>
     <p>🌙 月光塔罗 · 牌为你开门，路要你自己走。仅供娱乐与自我探索。<br />
-    <a href="/#gallery">浏览全部 78 张牌</a> · <a href="/">免费 AI 占卜</a></p>
+    <a href="/#gallery">浏览全部 78 张牌</a> · <a href="/">免费占卜</a></p>
   </footer>
 </div>
 </body>
