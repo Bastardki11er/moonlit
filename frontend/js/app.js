@@ -144,11 +144,11 @@ function renderDrawnCard(card, reversed, position, index) {
   const art = document.createElement("img");
   art.className = "card-art";
   art.src = "img/cards/" + card.id + ".webp";
-  art.alt = card.name;
+  art.alt = zhCardName(card);
   art.loading = "lazy";
   front.appendChild(art);
   const cap = el("div", "card-caption");
-  cap.appendChild(el("div", "cname", card.name));
+  cap.appendChild(el("div", "cname", zhCardName(card)));
   cap.appendChild(el("div", "orientation", reversed ? "逆位" : "正位"));
   front.appendChild(cap);
   inner.appendChild(back);
@@ -234,7 +234,7 @@ function showReadingStep() {
   box.innerHTML = "";
   state.drawn.forEach((d) => {
     box.appendChild(el("span", "chip",
-      d.position + ": " + d.card.name + (d.reversed ? " ⟲" : "")));
+      d.position + ": " + zhCardName(d.card) + (d.reversed ? " ⟲" : "")));
   });
   $("reading").hidden = true;
   $("reading-note").hidden = true;
@@ -291,6 +291,7 @@ async function fetchRealReading() {
       spread: SPREADS[state.spreadKey].name,
       cards: state.drawn.map((d) => ({
         position: d.position,
+        id: d.card.id,
         name: d.card.name,
         orientation: d.reversed ? "reversed" : "upright",
         meaning: d.reversed ? d.card.reversed : d.card.upright,
@@ -324,7 +325,7 @@ function makeSampleReading() {
   state.drawn.forEach((d) => {
     const meaning = d.reversed ? d.card.reversed : d.card.upright;
     lines.push(
-      d.position + " — " + d.card.name +
+      d.position + " — " + zhCardName(d.card) +
       (d.reversed ? "（逆位）" : "") +
       "：" + meaning
     );
@@ -451,10 +452,10 @@ function buildGallery() {
         const item = el("div", "gallery-item");
         const img = document.createElement("img");
         img.src = "img/cards/" + c.id + ".webp";
-        img.alt = c.name;
+        img.alt = zhCardName(c);
         img.loading = "lazy";
         item.appendChild(img);
-        item.appendChild(el("div", "gallery-name", c.name));
+        item.appendChild(el("div", "gallery-name", zhCardName(c)));
         item.addEventListener("click", () => openCardModal(c));
         row.appendChild(item);
       });
@@ -465,8 +466,8 @@ function buildGallery() {
 function openCardModal(c) {
   const art = $("modal-art");
   art.src = "img/cards/" + c.id + ".webp";
-  art.alt = c.name;
-  $("modal-name").textContent = c.name;
+  art.alt = zhCardName(c);
+  $("modal-name").textContent = zhCardName(c);
   $("modal-arcana").textContent =
     c.arcana === "major" ? "大阿卡纳" : "小阿卡纳 · " + (SUIT_ZH[c.suit] || c.suit);
   $("modal-up").textContent = "正位 · " + c.upright;
@@ -550,7 +551,7 @@ async function openHistory() {
           const dd = await rr.json();
           const full = dd.reading;
           const cardNames = full.cards.map((c) =>
-            escapeHtml(c.position + " · " + c.name + (c.orientation === "reversed" ? "（逆位）" : ""))).join("<br>");
+            escapeHtml(c.position + " · " + zhCardName(c) + (c.orientation === "reversed" ? "（逆位）" : ""))).join("<br>");
           body.innerHTML =
             "<div class='history-cards'>" + cardNames + "</div>" +
             "<div class='reading'>" + escapeHtml(full.reading_text).replace(/\n/g, "<br>") + "</div>";
@@ -607,6 +608,16 @@ function wrapText(ctx, text, maxWidth) {
     lines.push(line);
   }
   return lines;
+}
+
+function rr(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
 }
 
 function loadImg(src) {
@@ -694,7 +705,7 @@ async function renderShareCanvas({ title, subtitle, cards, bodyText, footer }) {
       ctx.strokeRect(x, y, cw, ch);
       ctx.fillStyle = "#f0d98c";
       ctx.font = "28px Georgia, serif";
-      let nm = cards[i].name + (cards[i].reversed ? " ·逆位" : "");
+      let nm = zhCardName(cards[i]) + (cards[i].reversed ? " ·逆位" : "");
       if (nm.length > 16) nm = nm.slice(0, 15) + "…";
       ctx.fillText(nm, x + cw / 2, y + ch + 44);
       x += cw + gap;
@@ -717,8 +728,39 @@ async function renderShareCanvas({ title, subtitle, cards, bodyText, footer }) {
     ctx.fillText("……", 100, y);
   }
 
-  // 落款
+  // ---- 底部引流区：二维码 + 链接（不透明底，盖住可能溢出的正文） ----
+  const qrImg = await loadImg("img/qr-site.png").catch(() => null);
+  const zoneY = H - 480;
+  ctx.fillStyle = "#151130";
+  rr(ctx, 28, zoneY, W - 56, 480 - 28, 20);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(212,175,55,.4)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(90, zoneY + 2);
+  ctx.lineTo(W - 90, zoneY + 2);
+  ctx.stroke();
+
   ctx.textAlign = "center";
+  if (qrImg) {
+    const qs = 190, qx = W / 2 - qs / 2, qy = zoneY + 30;
+    ctx.fillStyle = "#ffffff";
+    rr(ctx, qx - 14, qy - 14, qs + 28, qs + 28, 18);
+    ctx.fill();
+    ctx.drawImage(qrImg, qx, qy, qs, qs);
+    ctx.fillStyle = "#f0d98c";
+    ctx.font = "33px 'PingFang SC', 'Microsoft YaHei', sans-serif";
+    ctx.fillText("长按识别二维码，来月光塔罗抽一张牌", W / 2, qy + qs + 60);
+  } else {
+    ctx.fillStyle = "#f0d98c";
+    ctx.font = "33px 'PingFang SC', 'Microsoft YaHei', sans-serif";
+    ctx.fillText("来月光塔罗抽一张牌", W / 2, zoneY + 130);
+  }
+  ctx.fillStyle = "#9a94b8";
+  ctx.font = "30px 'PingFang SC', 'Microsoft YaHei', sans-serif";
+  ctx.fillText(location.origin, W / 2, zoneY + 336);
+
+  // 落款
   ctx.fillStyle = "#d4af37";
   ctx.font = "34px 'PingFang SC', 'Microsoft YaHei', sans-serif";
   ctx.fillText(footer || "牌为你开门，路要你自己走 ✨", W / 2, H - 88);
@@ -756,11 +798,26 @@ $("share-download").addEventListener("click", () => {
   }, "image/png");
 });
 
+$("share-copylink").addEventListener("click", async () => {
+  const btn = $("share-copylink");
+  const link = location.origin;
+  const text = "我在月光塔罗抽了牌，来试试 → " + link;
+  try {
+    await navigator.clipboard.writeText(text);
+    const old = btn.textContent;
+    btn.textContent = "✅ 已复制";
+    setTimeout(() => (btn.textContent = old), 2000);
+  } catch (e) {
+    prompt("复制这条链接发到小红书 / 朋友圈：", text);
+  }
+});
+
 $("share-native").addEventListener("click", async () => {
   try {
     const blob = await new Promise((r) => shareCanvas.toBlob(r, "image/png"));
     const file = new File([blob], "moonlit-tarot.png", { type: "image/png" });
-    await navigator.share({ files: [file], title: "月光塔罗" });
+    await navigator.share({ files: [file], title: "月光塔罗",
+      text: "我在月光塔罗抽了一张牌，来试试 → " + location.origin });
   } catch (e) {
     /* 用户取消了分享 */
   }
@@ -809,9 +866,9 @@ function renderDailyCard() {
   $("daily-date").textContent = d.getMonth() + 1 + "月" + d.getDate() + "日";
   const art = $("daily-art");
   art.src = "img/cards/" + card.id + ".webp";
-  art.alt = card.name;
+  art.alt = zhCardName(card);
   art.style.transform = reversed ? "rotate(180deg)" : "";
-  $("daily-name").textContent = card.name;
+  $("daily-name").textContent = zhCardName(card);
   $("daily-orient").textContent = reversed ? "逆位" : "正位";
   $("daily-meaning").textContent = (reversed ? "逆位 · " : "正位 · ") + meaning;
   $("daily-fortune").textContent = "月光说：" + meaning + "。带着这份提醒，好好过今天吧 ✨";
@@ -829,7 +886,7 @@ $("daily-share").addEventListener("click", async () => {
     const { card, reversed, meaning } = dailyCardData;
     const canvas = await renderShareCanvas({
       title: "每日一牌",
-      subtitle: $("daily-date").textContent + " · " + card.name + (reversed ? "（逆位）" : "（正位）"),
+      subtitle: $("daily-date").textContent + " · " + zhCardName(card) + (reversed ? "（逆位）" : "（正位）"),
       cards: [{ id: card.id, name: card.name, reversed }],
       bodyText: (reversed ? "逆位 · " : "正位 · ") + meaning + "\n月光说：带着这份提醒，好好过今天吧。",
       footer: "🌙 月光塔罗 · 明天再来抽一张",
