@@ -102,10 +102,27 @@ app.use(express.static(path.join(__dirname, "..", "frontend")));
    Usage is tracked in the database (daily_usage table). */
 const FREE_PER_DAY = parseInt(process.env.FREE_READINGS_PER_DAY || "3", 10);
 
-/* Resolve the visitor to a user row. The frontend sends the id it got
-   from /api/user/init (stored in localStorage). Unknown/missing id ->
-   a brand-new anonymous user is created and its id returned. */
+/* Token from the Authorization header ("Bearer <token>"). */
+function getBearerToken(req) {
+  const h = req.headers["authorization"] || "";
+  const m = h.match(/^Bearer\s+(.+)$/i);
+  return m ? m[1].trim() : null;
+}
+
+/* Resolve the visitor to a user row.
+   Logged in (valid token)? -> the account's user row, so readings and
+   quota follow the account across devices.
+   Otherwise -> the anonymous id from /api/user/init (localStorage). */
 function resolveUser(req) {
+  const sess = userdb.getSessionAccount(getBearerToken(req));
+  if (sess) {
+    let u = userdb.getUserForAccount(sess.accountId);
+    if (!u) {
+      u = userdb.getOrCreateUser(null);
+      userdb.attachUserToAccount(u.id, sess.accountId);
+    }
+    return u;
+  }
   const id = (req.body && req.body.userId) || req.headers["x-user-id"] || req.query.userId;
   return userdb.getOrCreateUser(id);
 }
@@ -114,7 +131,7 @@ function resolveUser(req) {
    Called once when the site loads. Returns the visitor's permanent
    anonymous id — the frontend saves it in localStorage. */
 app.post("/api/user/init", (req, res) => {
-  const user = userdb.getOrCreateUser(req.body && req.body.userId);
+  const user = resolveUser(req);
   res.json({
     userId: user.id,
     readingsTotal: user.readings_total,
@@ -133,6 +150,82 @@ app.get("/api/user/reading/:id", (req, res) => {
   const r = userdb.getReadingDetail(user.id, req.params.id);
   if (!r) return res.status(404).json({ error: "Not found." });
   res.json({ reading: r });
+});
+
+/* ---------- email accounts: register / login / logout ----------
+   Passwords are hashed with scrypt (Node built-in crypto).
+   The frontend stores the session token in localStorage and sends it
+   as "Authorization: Bearer <token>". Login merges this device's
+   anonymous history into the account, so nothing is lost. */
+
+// Tiny brute-force throttle for the auth endpoints (per IP, per minute).
+const authAttempts = new Map();
+function authThrottle(req, res, next) {
+  const ip = req.ip || "unknown";
+  const t = Date.now();
+  let e = authAttempts.get(ip);
+  if (!e || t > e.resetAt) e = { count: 0, resetAt: t + 60000 };
+  e.count += 1;
+  authAttempts.set(ip, e);
+  if (e.count > 20) return res.status(429).json({ error: "尝试太频繁，稍后再试。" });
+  next();
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+app.post("/api/auth/register", authThrottle, (req, res) => {
+  const { email, password, userId } = req.body || {};
+  if (!email || !EMAIL_RE.test(String(email))) {
+    return res.status(400).json({ error: "请输入有效的邮箱地址。" });
+  }
+  if (!password || String(password).length < 6) {
+    return res.status(400).json({ error: "密码至少 6 位。" });
+  }
+  const acc = userdb.createAccount(email, String(password));
+  if (acc.error === "exists") {
+    return res.status(409).json({ error: "这个邮箱已经注册过了，直接登录吧。" });
+  }
+  // Attach this device's anonymous history to the new account.
+  const user = userdb.getOrCreateUser(userId);
+  userdb.attachUserToAccount(user.id, acc.id);
+  const token = userdb.createSession(acc.id);
+  res.json({ token, email: acc.email, userId: user.id });
+});
+
+app.post("/api/auth/login", authThrottle, (req, res) => {
+  const { email, password, userId } = req.body || {};
+  if (!email || !password) {
+    return res.status(400).json({ error: "请输入邮箱和密码。" });
+  }
+  const acc = userdb.getAccountByEmail(email);
+  if (!acc || !userdb.verifyPassword(String(password), acc.password_hash)) {
+    return res.status(401).json({ error: "邮箱或密码不对，再试试。" });
+  }
+  let user = userdb.getUserForAccount(acc.id);
+  if (!user) {
+    user = userdb.getOrCreateUser(null);
+    userdb.attachUserToAccount(user.id, acc.id);
+  }
+  // Merge this device's anonymous history into the account.
+  if (userId && userId !== user.id) userdb.mergeUsers(userId, user.id);
+  const token = userdb.createSession(acc.id);
+  res.json({ token, email: acc.email, userId: user.id });
+});
+
+app.post("/api/auth/logout", (req, res) => {
+  userdb.deleteSession(getBearerToken(req));
+  res.json({ ok: true });
+});
+
+app.get("/api/auth/me", (req, res) => {
+  const sess = userdb.getSessionAccount(getBearerToken(req));
+  if (!sess) return res.status(401).json({ error: "Not logged in." });
+  let user = userdb.getUserForAccount(sess.accountId);
+  if (!user) {
+    user = userdb.getOrCreateUser(null);
+    userdb.attachUserToAccount(user.id, sess.accountId);
+  }
+  res.json({ email: sess.email, userId: user.id });
 });
 
 /* ---------- admin dashboard (token protected) ----------

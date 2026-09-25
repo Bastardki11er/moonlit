@@ -392,3 +392,21 @@ footer { text-align: center; color: var(--muted); font-size: .85rem; margin-top:
   font-size: .85rem; text-decoration: none; border-bottom: 1px dotted #3a3570;
 }
 .detail-link:hover { color: var(--gold); }
+
+/* ---- 登录 / 注册 ---- */
+.auth-card { max-width: 360px; }
+.auth-tabs { display: flex; gap: .5rem; justify-content: center; margin: .8rem 0 1rem; }
+.auth-tab {
+  flex: 1; padding: .55rem; border-radius: 10px; cursor: pointer;
+  background: transparent; border: 1px solid var(--line); color: var(--muted); font-size: .95rem;
+}
+.auth-tab.active { border-color: var(--gold); color: var(--gold-soft); background: rgba(212,175,55,.08); }
+#auth-form { display: flex; flex-direction: column; gap: .7rem; margin-bottom: .8rem; }
+#auth-form input {
+  padding: .7rem .9rem; border-radius: 10px; font-size: 1rem;
+  background: #0e0b20; border: 1px solid var(--line); color: var(--ink);
+}
+#auth-form input:focus { outline: none; border-color: var(--gold); }
+#auth-form input[hidden] { display: none; }
+.auth-error { color: #ff9d9d; font-size: .88rem; margin: 0; }
+.auth-logged-email { color: var(--gold-soft); margin: .3rem 0 1rem; word-break: break-all; }

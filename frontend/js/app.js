@@ -28,20 +28,73 @@ let state = { question: "", spreadKey: null, deck: [], drawn: [] };
 // ---------- user identity ----------
 // Every visitor gets a permanent anonymous id (stored in localStorage).
 // The backend creates a user row + saves all their readings under it.
-// No signup, no password — zero friction for new visitors.
+// Anonymous by default (id in localStorage); optional email login
+// (token in localStorage) syncs everything across devices.
 let moonlitUserId = null;
+let moonlitToken = null;
+let moonlitEmail = null;
+try { moonlitToken = localStorage.getItem("moonlit_token") || null; } catch (e) {}
+
+function authHeaders() {
+  const h = { "Content-Type": "application/json" };
+  if (moonlitToken) h["Authorization"] = "Bearer " + moonlitToken;
+  return h;
+}
+
+function renderAuthButton() {
+  const btn = $("nav-auth");
+  if (!btn) return;
+  if (moonlitEmail) {
+    const short = moonlitEmail.length > 14 ? moonlitEmail.slice(0, 12) + "…" : moonlitEmail;
+    btn.textContent = "👤 " + short;
+    btn.title = moonlitEmail + "（已登录，点击管理）";
+  } else {
+    btn.textContent = "👤 登录 / 注册";
+    btn.title = "";
+  }
+}
+
+function setLoggedIn(token, email, userId) {
+  moonlitToken = token;
+  moonlitEmail = email;
+  try { localStorage.setItem("moonlit_token", token); } catch (e) {}
+  if (userId) {
+    moonlitUserId = userId;
+    try { localStorage.setItem("moonlit_uid", userId); } catch (e) {}
+  }
+  renderAuthButton();
+  updateHistoryBadge();
+}
+
+function setLoggedOut() {
+  moonlitToken = null;
+  moonlitEmail = null;
+  try { localStorage.removeItem("moonlit_token"); } catch (e) {}
+  renderAuthButton();
+}
 
 async function initUser() {
   try {
+    // Returning visit with a login token? Restore the session first.
+    if (moonlitToken) {
+      const me = await fetch("/api/auth/me", { headers: authHeaders() });
+      if (me.ok) {
+        const data = await me.json();
+        setLoggedIn(moonlitToken, data.email, data.userId);
+        return;
+      }
+      setLoggedOut(); // token expired or revoked
+    }
     const stored = localStorage.getItem("moonlit_uid");
     const res = await fetch("/api/user/init", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders(),
       body: JSON.stringify({ userId: stored }),
     });
     const data = await res.json();
     moonlitUserId = data.userId;
     localStorage.setItem("moonlit_uid", moonlitUserId);
+    renderAuthButton();
     updateHistoryBadge();
   } catch (e) { /* offline — readings still work, just not saved */ }
 }
@@ -284,7 +337,7 @@ $("get-reading").addEventListener("click", async () => {
 async function fetchRealReading() {
   const res = await fetch("/api/reading", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders(),
     body: JSON.stringify({
       userId: moonlitUserId,
       question: state.question,
@@ -368,7 +421,7 @@ async function startPay(method) {
   try {
     const res = await fetch("/api/checkout", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders(),
       body: JSON.stringify({ method, userId: moonlitUserId }),
     });
     const data = await res.json();
@@ -500,7 +553,8 @@ async function updateHistoryBadge() {
   const badge = $("history-count");
   if (!badge || !moonlitUserId) return;
   try {
-    const res = await fetch("/api/user/readings?userId=" + encodeURIComponent(moonlitUserId));
+    const res = await fetch("/api/user/readings?userId=" + encodeURIComponent(moonlitUserId),
+      { headers: authHeaders() });
     const data = await res.json();
     const n = (data.readings || []).length;
     badge.hidden = n === 0;
@@ -525,7 +579,8 @@ async function openHistory() {
   const list = $("history-list");
   list.innerHTML = "<p class='hint'>加载中…</p>";
   try {
-    const res = await fetch("/api/user/readings?userId=" + encodeURIComponent(moonlitUserId || ""));
+    const res = await fetch("/api/user/readings?userId=" + encodeURIComponent(moonlitUserId || ""),
+      { headers: authHeaders() });
     const data = await res.json();
     const items = data.readings || [];
     list.innerHTML = "";
@@ -547,7 +602,8 @@ async function openHistory() {
         if (!details.open || body.dataset.loaded) return;
         try {
           const rr = await fetch("/api/user/reading/" + r.id +
-            "?userId=" + encodeURIComponent(moonlitUserId || ""));
+            "?userId=" + encodeURIComponent(moonlitUserId || ""),
+            { headers: authHeaders() });
           const dd = await rr.json();
           const full = dd.reading;
           const cardNames = full.cards.map((c) =>
@@ -857,10 +913,19 @@ function renderDailyCard() {
   const d = new Date();
   const key =
     d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
-  let h = 0;
-  for (const ch of key) h = (Math.imul(h, 31) + ch.charCodeAt(0)) >>> 0;
-  const card = TAROT_CARDS[h % TAROT_CARDS.length];
-  const reversed = ((h >>> 7) & 1) === 1;
+  /* 每人每天随机一张：存 localStorage，当天内稳定，换天/换人都不一样 */
+  const storeKey = "moonlit_daily_" + key;
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(storeKey) || "null"); } catch (e) {}
+  let card, reversed;
+  if (saved && saved.id) {
+    card = TAROT_CARDS.find((c) => c.id === saved.id) || TAROT_CARDS[0];
+    reversed = !!saved.reversed;
+  } else {
+    card = TAROT_CARDS[Math.floor(Math.random() * TAROT_CARDS.length)];
+    reversed = Math.random() < 0.5;
+    try { localStorage.setItem(storeKey, JSON.stringify({ id: card.id, reversed })); } catch (e) {}
+  }
   const meaning = reversed ? card.reversed : card.upright;
 
   $("daily-date").textContent = d.getMonth() + 1 + "月" + d.getDate() + "日";
@@ -900,3 +965,93 @@ $("daily-share").addEventListener("click", async () => {
 });
 
 renderDailyCard();
+
+/* ============================================================
+   邮箱登录 / 注册
+   ============================================================ */
+let authMode = "login";
+
+function setAuthMode(mode) {
+  authMode = mode;
+  $("auth-tab-login").classList.toggle("active", mode === "login");
+  $("auth-tab-register").classList.toggle("active", mode === "register");
+  $("auth-submit").textContent = mode === "login" ? "登录" : "注册";
+  $("auth-password2").hidden = mode === "login";
+  $("auth-password").setAttribute("autocomplete",
+    mode === "login" ? "current-password" : "new-password");
+  hideAuthError();
+}
+
+function showAuthError(msg) {
+  const e = $("auth-error");
+  e.textContent = msg;
+  e.hidden = false;
+}
+function hideAuthError() { $("auth-error").hidden = true; }
+
+function openAuthModal() {
+  if (moonlitEmail) {
+    $("auth-form-view").hidden = true;
+    $("auth-logged-view").hidden = false;
+    $("auth-logged-email").textContent = moonlitEmail;
+  } else {
+    $("auth-form-view").hidden = false;
+    $("auth-logged-view").hidden = true;
+    setAuthMode(authMode);
+  }
+  $("auth-modal").hidden = false;
+  document.body.style.overflow = "hidden";
+}
+function closeAuthModal() {
+  $("auth-modal").hidden = true;
+  document.body.style.overflow = "";
+}
+
+$("nav-auth").addEventListener("click", openAuthModal);
+$("auth-close").addEventListener("click", closeAuthModal);
+$("auth-modal").addEventListener("click", (e) => {
+  if (e.target === $("auth-modal")) closeAuthModal();
+});
+$("auth-tab-login").addEventListener("click", () => setAuthMode("login"));
+$("auth-tab-register").addEventListener("click", () => setAuthMode("register"));
+
+$("auth-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  hideAuthError();
+  const email = $("auth-email").value.trim();
+  const password = $("auth-password").value;
+  if (authMode === "register" && password !== $("auth-password2").value) {
+    showAuthError("两次输入的密码不一致。");
+    return;
+  }
+  const btn = $("auth-submit");
+  btn.disabled = true;
+  const old = btn.textContent;
+  btn.textContent = "请稍候…";
+  try {
+    const res = await fetch("/api/auth/" + authMode, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, userId: moonlitUserId }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "出错了，请重试。");
+    setLoggedIn(data.token, data.email, data.userId);
+    closeAuthModal();
+  } catch (err) {
+    showAuthError(err.message);
+  }
+  btn.disabled = false;
+  btn.textContent = old;
+});
+
+$("auth-logout").addEventListener("click", async () => {
+  try {
+    await fetch("/api/auth/logout", { method: "POST", headers: authHeaders() });
+  } catch (e) { /* 离线也照样退出 */ }
+  setLoggedOut();
+  try { localStorage.removeItem("moonlit_uid"); } catch (e) {}
+  moonlitUserId = null;
+  closeAuthModal();
+  initUser(); // 回到匿名身份
+});

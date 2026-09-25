@@ -17,6 +17,8 @@
    - readings:     every AI reading, linked to its user
    - daily_usage:  free-reading quota per user per day
    - orders:       XorPay payment orders, linked to users
+   - accounts:     email + password accounts (optional login)
+   - sessions:     login tokens for accounts (30-day expiry)
    ============================================================ */
 
 const fs = require("fs");
@@ -58,6 +60,19 @@ CREATE TABLE IF NOT EXISTS orders (
   created_at TEXT NOT NULL,
   paid_at    TEXT
 );
+CREATE TABLE IF NOT EXISTS accounts (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  email         TEXT UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL,
+  created_at    TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS sessions (
+  token      TEXT PRIMARY KEY,
+  account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  created_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sessions_account ON sessions(account_id);
 `;
 
 let db = null;
@@ -107,6 +122,8 @@ async function init() {
     db = new SQL.Database();
   }
   db.exec(SCHEMA);
+  // Migration for databases created before email accounts existed.
+  try { db.exec("ALTER TABLE users ADD COLUMN account_id INTEGER"); } catch (e) { /* already there */ }
   persist();
   return api;
 }
@@ -239,6 +256,100 @@ function recentUsers(limit = 20) {
   );
 }
 
+/* ---------- email accounts & sessions ---------- */
+
+// scrypt password hashing (Node built-in crypto, no new dependency).
+function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const hash = crypto.scryptSync(password, salt, 64).toString("hex");
+  return `scrypt$${salt}$${hash}`;
+}
+function verifyPassword(password, stored) {
+  const parts = String(stored || "").split("$");
+  if (parts.length !== 3 || parts[0] !== "scrypt") return false;
+  const [, salt, hash] = parts;
+  try {
+    const check = crypto.scryptSync(password, salt, 64);
+    return crypto.timingSafeEqual(check, Buffer.from(hash, "hex"));
+  } catch (e) {
+    return false;
+  }
+}
+
+function createAccount(email, password) {
+  email = String(email).trim().toLowerCase();
+  if (get("SELECT id FROM accounts WHERE email = ?", [email])) {
+    return { error: "exists" };
+  }
+  run("INSERT INTO accounts (email, password_hash, created_at) VALUES (?, ?, ?)",
+    [email, hashPassword(password), now()]);
+  return get("SELECT id, email, created_at FROM accounts WHERE email = ?", [email]);
+}
+
+function getAccountByEmail(email) {
+  return get("SELECT * FROM accounts WHERE email = ?", [String(email).trim().toLowerCase()]);
+}
+
+function createSession(accountId, daysValid = 30) {
+  const token = crypto.randomBytes(32).toString("hex");
+  const exp = new Date(Date.now() + daysValid * 864e5).toISOString();
+  run("INSERT INTO sessions (token, account_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
+    [token, accountId, now(), exp]);
+  return token;
+}
+
+// Returns { accountId, email } or null (also cleans up expired tokens).
+function getSessionAccount(token) {
+  if (!token) return null;
+  const s = get(
+    `SELECT s.token, s.account_id, s.expires_at, a.email
+     FROM sessions s JOIN accounts a ON a.id = s.account_id WHERE s.token = ?`,
+    [token]
+  );
+  if (!s) return null;
+  if (s.expires_at < now()) {
+    run("DELETE FROM sessions WHERE token = ?", [token]);
+    return null;
+  }
+  return { accountId: s.account_id, email: s.email };
+}
+
+function deleteSession(token) {
+  run("DELETE FROM sessions WHERE token = ?", [token]);
+}
+
+// The users-row that belongs to an account (one per account).
+function getUserForAccount(accountId) {
+  return get("SELECT * FROM users WHERE account_id = ?", [accountId]);
+}
+function attachUserToAccount(userId, accountId) {
+  run("UPDATE users SET account_id = ? WHERE id = ?", [accountId, userId]);
+}
+
+// Move everything from an anonymous user row into the account's user row.
+function mergeUsers(fromUserId, toUserId) {
+  if (!fromUserId || fromUserId === toUserId) return;
+  run("UPDATE readings SET user_id = ? WHERE user_id = ?", [toUserId, fromUserId]);
+  run("UPDATE orders SET user_id = ? WHERE user_id = ?", [toUserId, fromUserId]);
+  const rows = all("SELECT day, count FROM daily_usage WHERE user_id = ?", [fromUserId]);
+  for (const r of rows) {
+    run(
+      `INSERT INTO daily_usage (user_id, day, count) VALUES (?, ?, ?)
+       ON CONFLICT(user_id, day) DO UPDATE SET count = count + ?`,
+      [toUserId, r.day, r.count, r.count]
+    );
+  }
+  run("DELETE FROM daily_usage WHERE user_id = ?", [fromUserId]);
+  const from = get("SELECT readings_total, paid_readings FROM users WHERE id = ?", [fromUserId]);
+  if (from) {
+    run(
+      "UPDATE users SET readings_total = readings_total + ?, paid_readings = paid_readings + ? WHERE id = ?",
+      [from.readings_total || 0, from.paid_readings || 0, toUserId]
+    );
+    run("DELETE FROM users WHERE id = ?", [fromUserId]);
+  }
+}
+
 const api = {
   getOrCreateUser,
   setNickname,
@@ -255,6 +366,17 @@ const api = {
   getStats,
   recentReadings,
   recentUsers,
+  // email accounts
+  hashPassword,
+  verifyPassword,
+  createAccount,
+  getAccountByEmail,
+  createSession,
+  getSessionAccount,
+  deleteSession,
+  getUserForAccount,
+  attachUserToAccount,
+  mergeUsers,
 };
 
 module.exports = { init };
