@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>月光塔罗 — AI 塔罗占卜</title>
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<div class="stars"></div>
+
+<header>
+  <h1>🌙 月光塔罗</h1>
+  <p class="tagline">问一个问题，抽牌，让 AI 为你解读。</p>
+  <div id="demo-badge" class="demo-badge" hidden>演示模式 — 示例解读</div>
+</header>
+
+<main>
+  <!-- 第一步：问题 -->
+  <section id="step-question" class="panel">
+    <h2>第一步 · 写下你的问题</h2>
+    <p class="hint">具体一点。"我在奥斯汀的工作机会该接受吗？"比"说说我的未来"更好。</p>
+    <textarea id="question" rows="3" maxlength="300"
+      placeholder="在这里写下你的问题…"></textarea>
+
+    <h2>第二步 · 选择牌阵</h2>
+    <div class="spreads">
+      <button class="spread-btn" data-spread="single">
+        <span class="spread-name">单张牌</span>
+        <span class="spread-desc">一个明确的答案</span>
+      </button>
+      <button class="spread-btn" data-spread="three">
+        <span class="spread-name">过去 · 现在 · 未来</span>
+        <span class="spread-desc">三张牌，看见你的故事</span>
+      </button>
+      <button class="spread-btn" data-spread="five">
+        <span class="spread-name">深度洞察</span>
+        <span class="spread-desc">五张牌，完整图景</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- 第三步：抽牌 -->
+  <section id="step-draw" class="panel" hidden>
+    <h2>第三步 · 抽 <span id="draw-count"></span></h2>
+    <p class="hint">点击牌堆抽牌，点击每张牌翻面。</p>
+    <div class="table">
+      <div id="deck" class="deck" title="点击抽牌">
+        <div class="deck-card"></div>
+        <span id="deck-left"></span>
+      </div>
+      <div id="drawn" class="drawn"></div>
+    </div>
+  </section>
+
+  <!-- 第四步：解读 -->
+  <section id="step-reading" class="panel" hidden>
+    <h2>第四步 · 你的解读</h2>
+    <div id="cards-summary" class="cards-summary"></div>
+    <button id="get-reading" class="cta">✨ 获取 AI 解读</button>
+    <div id="reading" class="reading" hidden></div>
+    <p id="reading-note" class="hint" hidden></p>
+    <div id="paywall" hidden>
+      <p class="hint">你已用完免费次数。<br />解锁 <b>10 次解读，仅 ¥9.9</b> — 一次付费：</p>
+      <div class="pay-methods">
+        <button id="pay-wechat" class="cta">💬 微信支付</button>
+        <button id="pay-alipay" class="cta">💙 支付宝</button>
+      </div>
+      <div id="qr-box" hidden>
+        <p class="hint">用手机扫描支付 ¥9.9：</p>
+        <div id="qr"></div>
+        <p class="hint">等待支付… <span id="pay-status"></span></p>
+      </div>
+    </div>
+    <button id="restart" class="ghost">再问一个问题</button>
+  </section>
+
+  <!-- 给站长的提示 -->
+  <footer>
+    <p>🔮 每次 AI 解读仅需几分钱 API 费用。按次或包月收费 — 这就是生意。</p>
+  </footer>
+</main>
+
+<script src="js/cards.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

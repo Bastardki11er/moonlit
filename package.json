@@ -1,0 +1,1 @@
+{"dependencies":{"dotenv":"^16.4.5","express":"^4.19.2"},"description":"AI-powered tarot reading website","main":"backend/server.js","name":"moonlit-ai-tarot","scripts":{"start":"node backend/server.js"},"version":"1.0.0"}
