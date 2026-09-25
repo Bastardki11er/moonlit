@@ -257,6 +257,8 @@ $("get-reading").addEventListener("click", async () => {
     const result = DEMO_MODE ? { text: makeSampleReading() } : await fetchRealReading();
     box.classList.remove("loading");
     box.textContent = result.text;
+    lastReadingText = result.text;
+    $("share-reading").hidden = false;
     const note = $("reading-note");
     note.hidden = false;
     note.textContent = DEMO_MODE
@@ -342,6 +344,7 @@ $("restart").addEventListener("click", () => {
   $("question").value = "";
   document.querySelectorAll(".spread-btn").forEach((b) => b.classList.remove("selected"));
   $("step-reading").hidden = true;
+  $("share-reading").hidden = true;
   $("step-draw").hidden = true;
   $("step-question").hidden = false;
   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -468,6 +471,7 @@ function openCardModal(c) {
     c.arcana === "major" ? "大阿卡纳" : "小阿卡纳 · " + (SUIT_ZH[c.suit] || c.suit);
   $("modal-up").textContent = "正位 · " + c.upright;
   $("modal-rev").textContent = "逆位 · " + c.reversed;
+  $("modal-detail-link").href = "cards/" + c.id + ".html";
   $("card-modal").hidden = false;
   document.body.style.overflow = "hidden";
 }
@@ -580,3 +584,262 @@ $("nav-start").addEventListener("click", () => {
   $("question").focus();
   $("step-question").scrollIntoView({ behavior: "smooth" });
 });
+
+/* ============================================================
+   分享图：把一次解读画成 1080x1440 的漂亮图片，可保存/分享
+   ============================================================ */
+let lastReadingText = "";
+let shareCanvas = null;
+
+function wrapText(ctx, text, maxWidth) {
+  const lines = [];
+  for (const para of String(text).split("\n")) {
+    let line = "";
+    for (const ch of para) {
+      const test = line + ch;
+      if (ctx.measureText(test).width > maxWidth && line) {
+        lines.push(line);
+        line = ch;
+      } else {
+        line = test;
+      }
+    }
+    lines.push(line);
+  }
+  return lines;
+}
+
+function loadImg(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
+async function renderShareCanvas({ title, subtitle, cards, bodyText, footer }) {
+  const W = 1080, H = 1440;
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d");
+
+  // 背景：深紫渐变
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, "#0d0b1a");
+  g.addColorStop(0.55, "#1c1747");
+  g.addColorStop(1, "#2a2358");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+
+  // 星空
+  let seed = 20260924;
+  const rand = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+  for (let i = 0; i < 140; i++) {
+    const x = rand() * W, y = rand() * H, r = rand() * 1.8 + 0.4;
+    ctx.fillStyle = "rgba(255,255,255," + (0.25 + rand() * 0.55).toFixed(2) + ")";
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, 7);
+    ctx.fill();
+  }
+
+  // 金色边框
+  ctx.strokeStyle = "rgba(212,175,55,.55)";
+  ctx.lineWidth = 3;
+  ctx.strokeRect(28, 28, W - 56, H - 56);
+
+  let y = 130;
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#d4af37";
+  ctx.font = "700 60px Georgia, 'Songti SC', serif";
+  ctx.fillText("🌙 " + title, W / 2, y);
+  y += 40;
+
+  if (subtitle) {
+    ctx.fillStyle = "#b9b3d9";
+    ctx.font = "36px 'PingFang SC', 'Microsoft YaHei', sans-serif";
+    wrapText(ctx, subtitle, W - 240).slice(0, 3).forEach((l) => {
+      y += 52;
+      ctx.fillText(l, W / 2, y);
+    });
+    y += 26;
+  }
+
+  // 牌阵
+  if (cards && cards.length) {
+    const n = cards.length;
+    const gap = 28;
+    const cw = Math.min(300, (W - 180 - gap * (n - 1)) / n);
+    const ch = cw * 1.5;
+    const totalW = cw * n + gap * (n - 1);
+    let x = (W - totalW) / 2;
+    const imgs = await Promise.all(
+      cards.map((c) => loadImg("img/cards/" + c.id + ".webp").catch(() => null))
+    );
+    imgs.forEach((img, i) => {
+      if (img) {
+        if (cards[i].reversed) {
+          ctx.save();
+          ctx.translate(x + cw / 2, y + ch / 2);
+          ctx.rotate(Math.PI);
+          ctx.drawImage(img, -cw / 2, -ch / 2, cw, ch);
+          ctx.restore();
+        } else {
+          ctx.drawImage(img, x, y, cw, ch);
+        }
+      }
+      ctx.strokeStyle = "rgba(212,175,55,.7)";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x, y, cw, ch);
+      ctx.fillStyle = "#f0d98c";
+      ctx.font = "28px Georgia, serif";
+      let nm = cards[i].name + (cards[i].reversed ? " ·逆位" : "");
+      if (nm.length > 16) nm = nm.slice(0, 15) + "…";
+      ctx.fillText(nm, x + cw / 2, y + ch + 44);
+      x += cw + gap;
+    });
+    y += ch + 96;
+  }
+
+  // 正文
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#e8e4f5";
+  ctx.font = "37px 'PingFang SC', 'Microsoft YaHei', sans-serif";
+  const bodyLines = wrapText(ctx, bodyText, W - 200);
+  const maxLines = 13;
+  bodyLines.slice(0, maxLines).forEach((l) => {
+    ctx.fillText(l, 100, y);
+    y += 58;
+  });
+  if (bodyLines.length > maxLines) {
+    ctx.fillStyle = "#9a94b8";
+    ctx.fillText("……", 100, y);
+  }
+
+  // 落款
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#d4af37";
+  ctx.font = "34px 'PingFang SC', 'Microsoft YaHei', sans-serif";
+  ctx.fillText(footer || "牌为你开门，路要你自己走 ✨", W / 2, H - 88);
+
+  return canvas;
+}
+
+function openShareModal(canvas) {
+  shareCanvas = canvas;
+  $("share-preview").src = canvas.toDataURL("image/png");
+  $("share-native").hidden = !navigator.share;
+  $("share-modal").hidden = false;
+  document.body.style.overflow = "hidden";
+}
+
+function closeShareModal() {
+  $("share-modal").hidden = true;
+  document.body.style.overflow = "";
+}
+
+$("share-close").addEventListener("click", closeShareModal);
+$("share-modal").addEventListener("click", (e) => {
+  if (e.target === $("share-modal")) closeShareModal();
+});
+
+$("share-download").addEventListener("click", () => {
+  shareCanvas.toBlob((blob) => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "moonlit-tarot.png";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  }, "image/png");
+});
+
+$("share-native").addEventListener("click", async () => {
+  try {
+    const blob = await new Promise((r) => shareCanvas.toBlob(r, "image/png"));
+    const file = new File([blob], "moonlit-tarot.png", { type: "image/png" });
+    await navigator.share({ files: [file], title: "月光塔罗" });
+  } catch (e) {
+    /* 用户取消了分享 */
+  }
+});
+
+$("share-reading").addEventListener("click", async () => {
+  const btn = $("share-reading");
+  btn.disabled = true;
+  const old = btn.textContent;
+  btn.textContent = "正在画图…";
+  try {
+    const canvas = await renderShareCanvas({
+      title: "月光塔罗",
+      subtitle: "「" + state.question + "」",
+      cards: state.drawn.map((d) => ({
+        id: d.card.id,
+        name: d.card.name,
+        reversed: d.reversed,
+      })),
+      bodyText: lastReadingText,
+      footer: "🌙 月光塔罗 · AI 中文解读",
+    });
+    openShareModal(canvas);
+  } catch (e) {
+    alert("生成失败，请重试。");
+  }
+  btn.disabled = false;
+  btn.textContent = old;
+});
+
+/* ============================================================
+   每日一牌：同一天所有人看到同一张牌（可分享、可讨论）
+   ============================================================ */
+let dailyCardData = null;
+
+function renderDailyCard() {
+  const d = new Date();
+  const key =
+    d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  let h = 0;
+  for (const ch of key) h = (Math.imul(h, 31) + ch.charCodeAt(0)) >>> 0;
+  const card = TAROT_CARDS[h % TAROT_CARDS.length];
+  const reversed = ((h >>> 7) & 1) === 1;
+  const meaning = reversed ? card.reversed : card.upright;
+
+  $("daily-date").textContent = d.getMonth() + 1 + "月" + d.getDate() + "日";
+  const art = $("daily-art");
+  art.src = "img/cards/" + card.id + ".webp";
+  art.alt = card.name;
+  art.style.transform = reversed ? "rotate(180deg)" : "";
+  $("daily-name").textContent = card.name;
+  $("daily-orient").textContent = reversed ? "逆位" : "正位";
+  $("daily-meaning").textContent = (reversed ? "逆位 · " : "正位 · ") + meaning;
+  $("daily-fortune").textContent = "月光说：" + meaning + "。带着这份提醒，好好过今天吧 ✨";
+
+  dailyCardData = { card, reversed, meaning };
+}
+
+$("daily-share").addEventListener("click", async () => {
+  if (!dailyCardData) return;
+  const btn = $("daily-share");
+  btn.disabled = true;
+  const old = btn.textContent;
+  btn.textContent = "正在画图…";
+  try {
+    const { card, reversed, meaning } = dailyCardData;
+    const canvas = await renderShareCanvas({
+      title: "每日一牌",
+      subtitle: $("daily-date").textContent + " · " + card.name + (reversed ? "（逆位）" : "（正位）"),
+      cards: [{ id: card.id, name: card.name, reversed }],
+      bodyText: (reversed ? "逆位 · " : "正位 · ") + meaning + "\n月光说：带着这份提醒，好好过今天吧。",
+      footer: "🌙 月光塔罗 · 明天再来抽一张",
+    });
+    openShareModal(canvas);
+  } catch (e) {
+    alert("生成失败，请重试。");
+  }
+  btn.disabled = false;
+  btn.textContent = old;
+});
+
+renderDailyCard();

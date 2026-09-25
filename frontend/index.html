@@ -26,6 +26,21 @@
 </header>
 
 <main>
+  <!-- 每日一牌：每天一张，留住回头客 -->
+  <section id="daily" class="panel">
+    <h2>🌙 今日之牌 · <span id="daily-date"></span></h2>
+    <div class="daily-wrap">
+      <img id="daily-art" class="daily-art" alt="今日塔罗牌" />
+      <div class="daily-text">
+        <div id="daily-name" class="daily-name"></div>
+        <div id="daily-orient" class="hint"></div>
+        <p id="daily-meaning" class="daily-meaning"></p>
+        <p id="daily-fortune" class="daily-fortune"></p>
+        <button id="daily-share" class="ghost">📤 分享今日之牌</button>
+      </div>
+    </div>
+  </section>
+
   <!-- 第一步：问题 -->
   <section id="step-question" class="panel">
     <h2>第一步 · 写下你的问题</h2>
@@ -71,6 +86,9 @@
     <button id="get-reading" class="cta">✨ 获取 AI 解读</button>
     <div id="reading" class="reading" hidden></div>
     <p id="reading-note" class="hint" hidden></p>
+    <div class="share-row">
+      <button id="share-reading" class="ghost" hidden>📤 生成分享图</button>
+    </div>
     <div id="paywall" hidden>
       <p class="hint">你已用完免费次数。<br />解锁 <b>10 次解读，仅 ¥9.9</b> — 一次付费：</p>
       <div class="pay-methods">
@@ -115,6 +133,20 @@
     <div class="modal-arcana hint" id="modal-arcana"></div>
     <p class="modal-meaning" id="modal-up"></p>
     <p class="modal-meaning" id="modal-rev"></p>
+    <a id="modal-detail-link" class="detail-link" href="#">📄 查看完整牌义详解 →</a>
+  </div>
+</div>
+
+<!-- 分享图预览弹窗 -->
+<div id="share-modal" class="modal" hidden>
+  <div class="modal-card share-modal-card">
+    <button id="share-close" class="modal-close" aria-label="关闭">✕</button>
+    <img id="share-preview" class="share-preview" alt="分享图预览" />
+    <div class="share-actions">
+      <button id="share-download" class="cta">⬇️ 保存图片</button>
+      <button id="share-native" class="ghost" hidden>📤 分享到…</button>
+    </div>
+    <p class="hint">保存后发到微信朋友圈 / 小红书，带朋友一起来抽牌 ✨</p>
   </div>
 </div>
 

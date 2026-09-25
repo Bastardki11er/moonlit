@@ -362,3 +362,33 @@ footer { text-align: center; color: var(--muted); font-size: .85rem; margin-top:
 .history-meta{font-size:12px;color:var(--muted)}
 .history-body{padding:0 14px 14px}
 .history-cards{font-size:13px;color:var(--gold);margin-bottom:10px;line-height:1.8}
+
+/* ---- 每日一牌 ---- */
+.daily-wrap { display: flex; gap: 1.2rem; align-items: flex-start; }
+.daily-art {
+  width: 150px; aspect-ratio: 2/3; object-fit: cover;
+  border-radius: 10px; border: 1px solid #3a3570;
+  box-shadow: 0 6px 18px rgba(0,0,0,.45); flex-shrink: 0;
+}
+.daily-text { flex: 1; min-width: 0; }
+.daily-name { font-family: Georgia, serif; font-size: 1.15rem; color: var(--gold); }
+.daily-meaning { color: var(--text); margin: .5rem 0; line-height: 1.65; }
+.daily-fortune { color: var(--gold-soft); line-height: 1.65; margin-bottom: .8rem; }
+@media (max-width: 560px) {
+  .daily-wrap { flex-direction: column; align-items: center; text-align: center; }
+  .daily-art { width: 170px; }
+}
+
+/* ---- 分享图 ---- */
+.share-row { margin-top: 1rem; text-align: center; }
+.share-modal-card { max-width: 420px; text-align: center; }
+.share-preview {
+  width: 100%; border-radius: 10px; border: 1px solid #3a3570;
+  margin-bottom: 1rem;
+}
+.share-actions { display: flex; gap: .7rem; justify-content: center; margin-bottom: .6rem; }
+.detail-link {
+  display: inline-block; margin-top: .9rem; color: var(--gold-soft);
+  font-size: .85rem; text-decoration: none; border-bottom: 1px dotted #3a3570;
+}
+.detail-link:hover { color: var(--gold); }
