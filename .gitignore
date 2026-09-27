@@ -9,3 +9,6 @@ node_modules/
 # Admin 面板不进公开仓库（本地/服务器保留）
 frontend/admin.html
 tools/admin-test.js
+
+# 推广内容包不进仓库（本地保留）
+content-pack/
