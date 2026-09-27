@@ -5,3 +5,7 @@ node_modules/
 *.db-wal
 *.db-shm
 *.db.bak
+
+# Admin 面板不进公开仓库（本地/服务器保留）
+frontend/admin.html
+tools/admin-test.js
