@@ -218,8 +218,124 @@ function readBirthForm(p, opts) {
   return body;
 }
 
+/* ---------------- 出生信息记忆（注册用户专享） ---------------- */
+const isLoggedIn = () => {
+  try { return !!localStorage.getItem("moonlit_token"); } catch (e) { return false; }
+};
+let birthProfileCache = null; // null=未加载，false=无或游客
+
+async function getBirthProfile() {
+  if (birthProfileCache !== null) return birthProfileCache || null;
+  if (!isLoggedIn()) { birthProfileCache = false; return null; }
+  try {
+    const d = await api("/api/profile/birth");
+    birthProfileCache = d.profile || false;
+  } catch (e) { birthProfileCache = false; }
+  return birthProfileCache || null;
+}
+
+function initBirthMemory(p, opts) {
+  opts = opts || {};
+  const wrap = $(p + "-form-wrap");
+  if (!wrap) return;
+  let bar = $(p + "-memory-bar");
+  if (!bar) {
+    bar = document.createElement("div");
+    bar.id = p + "-memory-bar";
+    bar.className = "birth-memory-bar";
+    bar.hidden = true;
+    wrap.prepend(bar);
+  }
+  getBirthProfile().then((prof) => {
+    if (prof) {
+      bar.hidden = false;
+      bar.innerHTML =
+        `🎂 检测到你保存的出生信息 ` +
+        `<button type="button" class="ghost small" id="${p}-fill-profile">⚡ 一键填入</button>`;
+      const btn = $(p + "-fill-profile");
+      if (btn) btn.addEventListener("click", () => fillBirthForm(p, prof, !!opts.location));
+    } else if (!isLoggedIn()) {
+      bar.hidden = false;
+      bar.innerHTML = `<span class="hint">👑 登录后可记住出生信息，下次排盘一键填入</span>`;
+    } else {
+      bar.hidden = true;
+    }
+  });
+  // "记住这次"复选框（登录态变化时增删）
+  const form = $(p + "-form");
+  let label = $(p + "-remember-label");
+  if (isLoggedIn() && !label && form) {
+    label = document.createElement("label");
+    label.className = "remember-birth";
+    label.id = p + "-remember-label";
+    label.innerHTML = `<input type="checkbox" id="${p}-remember" checked /> 记住这次的出生信息，下次一键填入`;
+    form.insertBefore(label, $(p + "-submit"));
+  } else if (!isLoggedIn() && label) {
+    label.remove();
+  }
+}
+
+/* 登录/退出后刷新（app.js 的 setLoggedIn/setLoggedOut 会调用） */
+window.__refreshBirthMemory = function () {
+  birthProfileCache = null;
+  initBirthMemory("bazi");
+  initBirthMemory("ziwei");
+  initBirthMemory("astro", { location: true });
+};
+
+function fillBirthForm(p, prof, hasLocation) {
+  const setRadio = (name, val) => {
+    document.querySelectorAll(`input[name="${p}-${name}"]`).forEach((r) => { r.checked = r.value === val; });
+  };
+  setRadio("gender", prof.gender === "female" ? "female" : "male");
+  $(p + "-year").value = prof.birth_year || "";
+  $(p + "-month").value = prof.birth_month || "";
+  $(p + "-day").value = prof.birth_day || "";
+  setRadio("cal", prof.calendar_type === "lunar" ? "lunar" : "solar");
+  $(p + "-leap").checked = !!prof.is_leap_month;
+  $(p + "-hour").value = String(prof.birth_hour);
+  if (prof.birth_minute !== null && prof.birth_minute !== undefined) {
+    $(p + "-minute").value = String(prof.birth_minute);
+  }
+  if (hasLocation && prof.latitude !== null && prof.latitude !== undefined &&
+      prof.longitude !== null && prof.longitude !== undefined) {
+    // 找坐标最近的城市（0.6 度内），找不到就走"手动填经纬度"
+    let best = null, bestD = 0.6;
+    PROVINCES.forEach((pr, pi) => pr[1].forEach((c, ci) => {
+      const d = Math.abs(c[1] - prof.latitude) + Math.abs(c[2] - prof.longitude);
+      if (d < bestD) { bestD = d; best = { pi, ci }; }
+    }));
+    const prov = $(p + "-province"), city = $(p + "-city"), llwrap = $(p + "-llwrap");
+    prov.value = String(best ? best.pi : 0);
+    prov.dispatchEvent(new Event("change"));
+    if (best) {
+      city.value = String(best.ci);
+      city.dispatchEvent(new Event("change"));
+    } else {
+      city.value = "custom";
+      city.dispatchEvent(new Event("change"));
+      llwrap.hidden = false;
+      $(p + "-lat").value = prof.latitude;
+      $(p + "-lon").value = prof.longitude;
+    }
+  }
+}
+
+/* 排盘成功后：如果勾了"记住"，把这次的出生信息存下来（失败不打扰） */
+async function maybeSaveBirthProfile(p, kind, body) {
+  try {
+    const box = $(p + "-remember");
+    if (!box || !box.checked || !isLoggedIn()) return;
+    const payload = Object.assign({ kind }, body);
+    delete payload.userId; delete payload.question;
+    await api("/api/profile/birth", { method: "POST", body: payload });
+    birthProfileCache = null;
+  } catch (e) { /* ignore */ }
+}
+
 /* ---------------- bazi ---------------- */
 $("bazi-form-wrap").innerHTML = birthFormHTML("bazi");
+initBirthMemory("bazi");
 $("bazi-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   let body;
@@ -229,6 +345,7 @@ $("bazi-form").addEventListener("submit", async (e) => {
   try {
     const data = await api("/api/divination/bazi", { method: "POST", body });
     renderBaziResult(data);
+    maybeSaveBirthProfile("bazi", "bazi", body);
     loadMiniHistory("bazi");
   } catch (err) {
     const el = $("bazi-error"); el.textContent = err.message; el.hidden = false;
@@ -273,6 +390,7 @@ $("bazi-journal").addEventListener("click", () => {
 
 /* ---------------- ziwei ---------------- */
 $("ziwei-form-wrap").innerHTML = birthFormHTML("ziwei");
+initBirthMemory("ziwei");
 $("ziwei-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   let body;
@@ -282,6 +400,7 @@ $("ziwei-form").addEventListener("submit", async (e) => {
   try {
     const data = await api("/api/divination/ziwei", { method: "POST", body });
     renderZiweiResult(data);
+    maybeSaveBirthProfile("ziwei", "ziwei", body);
     loadMiniHistory("ziwei");
   } catch (err) {
     const el = $("ziwei-error"); el.textContent = err.message; el.hidden = false;
@@ -348,6 +467,7 @@ $("ziwei-journal").addEventListener("click", () => {
 
 /* ---------------- astro ---------------- */
 $("astro-form-wrap").innerHTML = birthFormHTML("astro", { location: true });
+initBirthMemory("astro", { location: true });
 wireLocationCascade("astro");
 $("astro-form").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -358,6 +478,7 @@ $("astro-form").addEventListener("submit", async (e) => {
   try {
     const data = await api("/api/divination/astro", { method: "POST", body });
     renderAstroResult(data);
+    maybeSaveBirthProfile("astro", "astro", body);
     loadMiniHistory("astro");
   } catch (err) {
     const el = $("astro-error"); el.textContent = err.message; el.hidden = false;

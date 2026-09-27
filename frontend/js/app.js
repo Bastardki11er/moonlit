@@ -65,6 +65,8 @@ function setLoggedIn(token, email, userId) {
     moonlitUserId = userId;
     try { localStorage.setItem("moonlit_uid", userId); } catch (e) {}
   }
+  window.__moonlitMember = true;
+  if (typeof window.__refreshBirthMemory === "function") window.__refreshBirthMemory();
   renderAuthButton();
   updateHistoryBadge();
 }
@@ -73,6 +75,8 @@ function setLoggedOut() {
   moonlitToken = null;
   moonlitEmail = null;
   try { localStorage.removeItem("moonlit_token"); } catch (e) {}
+  window.__moonlitMember = false;
+  if (typeof window.__refreshBirthMemory === "function") window.__refreshBirthMemory();
   renderAuthButton();
 }
 
@@ -84,6 +88,7 @@ async function initUser() {
       if (me.ok) {
         const data = await me.json();
         setLoggedIn(moonlitToken, data.email, data.userId);
+        window.__moonlitMember = true;
         return;
       }
       setLoggedOut(); // token expired or revoked
@@ -98,9 +103,12 @@ async function initUser() {
     const data = await res.json();
     moonlitUserId = data.userId;
     localStorage.setItem("moonlit_uid", moonlitUserId);
+    window.__moonlitMember = !!data.isMember;
+    window.__moonlitFreePerDay = data.freePerDay || 3;
+    window.__followupFree = !!data.followupFree;
     if (data.referralApplied) {
       window.__referralApplied = true;
-      if (typeof window.__onReferralApplied === "function") window.__onReferralApplied();
+      if (typeof window.__onReferralApplied === "function") window.__onReferralApplied(data.referralReward || 1);
     }
     renderAuthButton();
     updateHistoryBadge();
@@ -341,6 +349,7 @@ $("get-reading").addEventListener("click", async () => {
     $("followup-thread").innerHTML = "";
     $("followup-input").value = "";
     $("followup-box").hidden = !(DEMO_MODE || currentReadingId);
+    paintFollowupHint();
   } catch (err) {
     box.classList.remove("loading");
     if (err.code === 402) {
@@ -433,6 +442,17 @@ function appendFollowup(q, a) {
   thread.lastChild.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
+/* 追问提示文案：会员且今天还有首免时显示免费提示 */
+function paintFollowupHint() {
+  const h = $("followup-hint");
+  if (!h) return;
+  if (window.__moonlitMember && window.__followupFree) {
+    h.textContent = "👑 会员今日首次追问免费，月光会结合你的牌面回答。";
+  } else {
+    h.textContent = "每次追问消耗 1 次免费额度，月光会结合你的牌面回答。";
+  }
+}
+
 $("followup-send").addEventListener("click", async () => {
   const input = $("followup-input");
   const q = input.value.trim();
@@ -471,6 +491,8 @@ $("followup-send").addEventListener("click", async () => {
     const data = await res.json();
     appendFollowup(q, data.answer);
     input.value = "";
+    window.__followupFree = false; // 用过首免了，文案切回普通
+    paintFollowupHint();
     updateReadingNote(data.freeLeft);
     updateHistoryBadge();
   } catch (err) {

@@ -118,6 +118,21 @@ CREATE TABLE IF NOT EXISTS journal (
   updated_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_journal_user ON journal(user_id, id DESC);
+CREATE TABLE IF NOT EXISTS birth_profiles (
+  user_id      TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  gender       TEXT NOT NULL,
+  birth_year   INTEGER NOT NULL,
+  birth_month  INTEGER NOT NULL,
+  birth_day    INTEGER NOT NULL,
+  birth_hour   INTEGER NOT NULL,
+  birth_minute INTEGER,
+  calendar_type TEXT NOT NULL DEFAULT 'solar',
+  is_leap_month INTEGER NOT NULL DEFAULT 0,
+  latitude     REAL,
+  longitude    REAL,
+  birth_place  TEXT,
+  updated_at   TEXT NOT NULL
+);
 `;
 
 let db = null;
@@ -173,6 +188,23 @@ async function init() {
   try { db.exec("ALTER TABLE users ADD COLUMN bonus_readings INTEGER NOT NULL DEFAULT 0"); } catch (e) { /* already there */ }
   // Migration for referral attribution (2026-09-26).
   try { db.exec("ALTER TABLE users ADD COLUMN referred_by TEXT"); } catch (e) { /* already there */ }
+  // Migration for member birth profiles (2026-09-26). CREATE TABLE IF NOT
+  // EXISTS is idempotent — safe to run on every startup.
+  db.exec(`CREATE TABLE IF NOT EXISTS birth_profiles (
+    user_id      TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    gender       TEXT NOT NULL,
+    birth_year   INTEGER NOT NULL,
+    birth_month  INTEGER NOT NULL,
+    birth_day    INTEGER NOT NULL,
+    birth_hour   INTEGER NOT NULL,
+    birth_minute INTEGER,
+    calendar_type TEXT NOT NULL DEFAULT 'solar',
+    is_leap_month INTEGER NOT NULL DEFAULT 0,
+    latitude     REAL,
+    longitude    REAL,
+    birth_place  TEXT,
+    updated_at   TEXT NOT NULL
+  )`);
   persist();
   return api;
 }
@@ -199,6 +231,15 @@ function getOrCreateUser(id) {
 
 function setNickname(id, nickname) {
   run("UPDATE users SET nickname = ? WHERE id = ?", [String(nickname).slice(0, 40), id]);
+}
+
+/* ---------- member perks （注册用户权益） ----------
+   isRegistered: 该 user 行是否绑定了邮箱账号（users.account_id 非空）。
+   力度说明：游客已经全免费，注册是"更爽"而不是"卡游客脖子"——
+   额度加成温和（AI 调用有真实成本），便利功能给足。 */
+function isRegistered(userId) {
+  const row = get("SELECT account_id FROM users WHERE id = ?", [userId]);
+  return !!(row && row.account_id != null);
 }
 
 /* ---------- free quota (per user, per day) ---------- */
@@ -239,7 +280,8 @@ function usePaidReadings(userId, n = 1) {
 
 /* ---------- share-to-earn bonus readings ---------- */
 
-const SHARE_BONUS_PER_DAY = 2; // max bonus readings earnable per user per day
+const SHARE_BONUS_PER_DAY = 2; // 游客每天最多靠分享赚 2 次
+const SHARE_BONUS_MEMBER_PER_DAY = 3; // 注册用户每天 3 次
 
 function getBonusReadings(userId) {
   const row = get("SELECT bonus_readings FROM users WHERE id = ?", [userId]);
@@ -256,12 +298,13 @@ function useBonusReadings(userId, n = 1) {
   return false;
 }
 
-/* Grant +1 bonus reading for sharing. Capped at SHARE_BONUS_PER_DAY/day. */
+/* Grant +1 bonus reading for sharing. Capped per day (member cap is higher). */
 function grantShareBonus(userId) {
+  const cap = isRegistered(userId) ? SHARE_BONUS_MEMBER_PER_DAY : SHARE_BONUS_PER_DAY;
   const day = today();
   const row = get("SELECT count FROM share_grants WHERE user_id = ? AND day = ?", [userId, day]);
   const used = row ? row.count : 0;
-  if (used >= SHARE_BONUS_PER_DAY) {
+  if (used >= cap) {
     return { ok: false, reason: "daily_cap", bonus: getBonusReadings(userId), grantsLeft: 0 };
   }
   run(
@@ -271,18 +314,22 @@ function grantShareBonus(userId) {
   );
   run("UPDATE users SET bonus_readings = bonus_readings + 1 WHERE id = ?", [userId]);
   persist();
-  return { ok: true, bonus: getBonusReadings(userId), grantsLeft: SHARE_BONUS_PER_DAY - used - 1 };
+  return { ok: true, bonus: getBonusReadings(userId), grantsLeft: cap - used - 1 };
 }
 
 function shareGrantsLeftToday(userId) {
+  const cap = isRegistered(userId) ? SHARE_BONUS_MEMBER_PER_DAY : SHARE_BONUS_PER_DAY;
   const row = get("SELECT count FROM share_grants WHERE user_id = ? AND day = ?", [userId, today()]);
-  return SHARE_BONUS_PER_DAY - (row ? row.count : 0);
+  return Math.max(0, cap - (row ? row.count : 0));
 }
 
 /* ---------- referral: ?ref=<userId> invite links ----------
-   The referred newcomer and the referrer each get +1 bonus reading.
+   The referred newcomer and the referrer each get bonus readings.
+   注册用户做推荐人时双方各 +2（游客推荐人 +1）——鼓励先注册再邀请。
    One referral per newcomer ever; referrer capped at 10 rewards/day. */
 const REFERRAL_PER_DAY_CAP = 10;
+const REFERRAL_REWARD_GUEST = 1;
+const REFERRAL_REWARD_MEMBER = 2;
 function applyReferral(newUserId, refId) {
   if (!refId || !UUID_RE.test(refId) || refId === newUserId) return { applied: false };
   const refUser = get("SELECT id FROM users WHERE id = ?", [refId]);
@@ -294,17 +341,20 @@ function applyReferral(newUserId, refId) {
     [refId, today()]
   );
   if (given && given.c >= REFERRAL_PER_DAY_CAP) return { applied: false, reason: "referrer_cap" };
+  const reward = isRegistered(refId) ? REFERRAL_REWARD_MEMBER : REFERRAL_REWARD_GUEST;
   run("UPDATE users SET referred_by = ? WHERE id = ?", [refId, newUserId]);
-  run("UPDATE users SET bonus_readings = bonus_readings + 1 WHERE id IN (?, ?)", [newUserId, refId]);
+  run("UPDATE users SET bonus_readings = bonus_readings + ? WHERE id IN (?, ?)", [reward, newUserId, refId]);
   persist();
-  return { applied: true, bonus: getBonusReadings(newUserId) };
+  return { applied: true, bonus: getBonusReadings(newUserId), rewardAmount: reward };
 }
 
 /* ---------- daily check-in （每日签到） ----------
    Beijing-date based (matches the almanac widget). Streak = consecutive
    days ending today (or yesterday if today not checked in yet).
-   Every 7th consecutive day grants +1 bonus reading. */
+   Every 7th consecutive day grants bonus readings: 游客 +1，注册用户 +2. */
 const CHECKIN_REWARD_EVERY = 7;
+const CHECKIN_REWARD_GUEST = 1;
+const CHECKIN_REWARD_MEMBER = 2;
 function beijingDay(d = new Date()) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai" }).format(d);
 }
@@ -332,20 +382,58 @@ function doCheckin(userId) {
   const already = get("SELECT 1 AS x FROM checkins WHERE user_id = ? AND day = ?", [userId, day]);
   if (already) {
     const s = checkinStreak(userId);
-    return { ok: true, duplicate: true, ...s, rewardGranted: false };
+    return { ok: true, duplicate: true, ...s, rewardGranted: false, rewardAmount: 0 };
   }
   run("INSERT INTO checkins (user_id, day) VALUES (?, ?)", [userId, day]);
   const s = checkinStreak(userId);
-  let rewardGranted = false;
+  let rewardGranted = false, rewardAmount = 0;
   if (s.streak > 0 && s.streak % CHECKIN_REWARD_EVERY === 0) {
-    run("UPDATE users SET bonus_readings = bonus_readings + 1 WHERE id = ?", [userId]);
+    rewardAmount = isRegistered(userId) ? CHECKIN_REWARD_MEMBER : CHECKIN_REWARD_GUEST;
+    run("UPDATE users SET bonus_readings = bonus_readings + ? WHERE id = ?", [rewardAmount, userId]);
     rewardGranted = true;
   }
   persist();
-  return { ok: true, duplicate: false, ...s, rewardGranted, bonus: getBonusReadings(userId) };
+  return { ok: true, duplicate: false, ...s, rewardGranted, rewardAmount, bonus: getBonusReadings(userId) };
 }
 
 /* ---------- readings history ---------- */
+
+/* 注册用户每天首次追问免费：统计今天已追问次数 */
+function followupsToday(userId) {
+  const row = get(
+    "SELECT COUNT(*) AS c FROM followups WHERE user_id = ? AND substr(created_at, 1, 10) = ?",
+    [userId, today()]
+  );
+  return row ? row.c : 0;
+}
+
+/* ---------- 出生信息记忆（注册用户专享） ----------
+   保存命理排盘的出生信息，下次一键填入。只存排盘需要的字段。 */
+function getBirthProfile(userId) {
+  return get("SELECT * FROM birth_profiles WHERE user_id = ?", [userId]) || null;
+}
+
+function saveBirthProfile(userId, p) {
+  run(
+    `INSERT INTO birth_profiles
+       (user_id, gender, birth_year, birth_month, birth_day, birth_hour, birth_minute,
+        calendar_type, is_leap_month, latitude, longitude, birth_place, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(user_id) DO UPDATE SET
+       gender = excluded.gender, birth_year = excluded.birth_year,
+       birth_month = excluded.birth_month, birth_day = excluded.birth_day,
+       birth_hour = excluded.birth_hour, birth_minute = excluded.birth_minute,
+       calendar_type = excluded.calendar_type, is_leap_month = excluded.is_leap_month,
+       latitude = excluded.latitude, longitude = excluded.longitude,
+       birth_place = excluded.birth_place, updated_at = excluded.updated_at`,
+    [userId, p.gender, p.birthYear, p.birthMonth, p.birthDay, p.birthHour,
+     p.birthMinute == null ? null : p.birthMinute, p.calendarType,
+     p.isLeapMonth ? 1 : 0,
+     p.latitude == null ? null : p.latitude, p.longitude == null ? null : p.longitude,
+     p.birthPlace || null, now()]
+  );
+  persist();
+}
 
 function saveReading(userId, { question, spread, cards, readingText }) {
   run(
@@ -607,6 +695,7 @@ function deleteJournal(userId, id) {
 const api = {
   getOrCreateUser,
   setNickname,
+  isRegistered,
   freeLeftToday,
   countReadingToday,
   addPaidReadings,
@@ -624,6 +713,9 @@ const api = {
   getReadingDetail,
   saveFollowup,
   getFollowups,
+  followupsToday,
+  getBirthProfile,
+  saveBirthProfile,
   createOrder,
   orderPaid,
   markOrderPaid,

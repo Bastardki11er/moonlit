@@ -214,7 +214,7 @@
           <input id="followup-input" maxlength="500" placeholder="比如：那我下个月要注意什么？" />
           <button id="followup-send" class="cta">追问</button>
         </div>
-        <p class="hint">每次追问消耗 1 次免费额度，月光会结合你的牌面回答。</p>
+        <p class="hint" id="followup-hint">每次追问消耗 1 次免费额度，月光会结合你的牌面回答。</p>
       </div>
       <div class="share-row">
         <button id="share-reading" class="ghost" hidden>📤 生成分享图</button>
@@ -386,11 +386,23 @@
         <p id="auth-error" class="auth-error" hidden></p>
         <button id="auth-submit" class="cta" type="submit">登录</button>
       </form>
-      <p class="hint">登录后，你的占卜记录和免费次数在所有设备上同步 ✨</p>
+      <p class="hint">登录后，你的占卜记录和免费次数在所有设备上同步 ✨<br>注册用户享会员权益：更多免费次数、签到翻倍、一键重排命盘 👑</p>
     </div>
     <div id="auth-logged-view" hidden>
-      <p>已登录</p>
+      <p>已登录 <span class="member-badge">👑 会员</span></p>
       <p id="auth-logged-email" class="auth-logged-email"></p>
+      <div class="perks-box">
+        <p class="perks-title">✨ 你的会员权益</p>
+        <ul class="perks-list">
+          <li>✨ 每日免费解读 <b>5 次</b>（游客 3 次）<span class="hint">付费开启后生效</span></li>
+          <li>💬 每天首次追问免费 <span class="hint">付费开启后生效</span></li>
+          <li>📤 分享赚次数：每天 <b>3 次</b>（游客 2 次）</li>
+          <li>📅 签到满 7 天奖励 <b>+2 次</b>（游客 +1）</li>
+          <li>👥 邀请好友：双方各 <b>+2 次</b>（游客邀请 +1）</li>
+          <li>🎂 出生信息记忆：排盘一键填入</li>
+          <li>☁️ 历史记录 <b>100 条</b>云同步（游客 30 条）</li>
+        </ul>
+      </div>
       <button id="auth-logout" class="ghost">退出登录</button>
     </div>
   </div>

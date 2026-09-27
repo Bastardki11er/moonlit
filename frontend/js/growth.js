@@ -76,10 +76,11 @@
     };
   }
 
-  /* 受邀回调：app.js 的 initUser 在确认 referralApplied 后调用 */
-  window.__onReferralApplied = function () {
+  /* 受邀回调：app.js 的 initUser 在确认 referralApplied 后调用，reward 为双方各得的次数 */
+  window.__onReferralApplied = function (reward) {
     try { localStorage.removeItem("moonlit_ref"); } catch (e) {}
-    setTimeout(() => toast("🎉 受邀成功！你和朋友各得 +1 次免费解读"), 1200);
+    const n = reward || 1;
+    setTimeout(() => toast(`🎉 受邀成功！你和朋友各得 +${n} 次免费解读`), 1200);
   };
 
   document.addEventListener("DOMContentLoaded", () => {
@@ -230,12 +231,14 @@
     const paint = (streak, checkedIn) => {
       const toGo = 7 - (streak % 7 || (checkedIn ? 7 : 0));
       const filled = streak % 7;
+      // 注册用户签到满 7 天奖 +2，游客 +1
+      const rewardN = (typeof window.__moonlitMember !== "undefined" && window.__moonlitMember) ? 2 : 1;
       info.textContent = checkedIn
         ? `已连续签到 ${streak} 天 🎉`
         : (streak > 0 ? `已连续签到 ${streak} 天，今日还未签到` : "今日还未签到");
       dots.innerHTML = Array.from({ length: 7 }, (_, i) =>
         `<span class="ck-dot${i < filled ? " on" : ""}${i === 6 ? " gift" : ""}"></span>`).join("");
-      dots.title = `再签到 ${toGo} 天得 +1 次免费解读`;
+      dots.title = `再签到 ${toGo} 天得 +${rewardN} 次免费解读`;
       btn.disabled = checkedIn;
       btn.textContent = checkedIn ? "✅ 今日已签到" : "📅 每日签到";
     };
@@ -248,7 +251,7 @@
       try {
         const r = await (await authedFetch("/api/checkin", { method: "POST" })).json();
         paint(r.streak || 0, true);
-        if (r.rewardGranted) toast("🎉 连续签到 7 天！+1 次免费解读已到账");
+        if (r.rewardGranted) toast(`🎉 连续签到 7 天！+${r.rewardAmount || 1} 次免费解读已到账`);
         else if (!r.duplicate) toast(`签到成功！已连续 ${r.streak} 天`);
       } catch (e) {
         toast("签到失败，稍后再试");
@@ -267,9 +270,11 @@
     const paint = async () => {
       try {
         const s = await (await authedFetch("/api/share-status")).json();
+        const isMember = (typeof window.__moonlitMember !== "undefined" && window.__moonlitMember);
         statusEl.innerHTML =
           `🎟 我的奖励次数：<b>${s.bonus || 0}</b> · 今日还可领取：<b>${s.grantsLeft || 0}</b> 次` +
-          `<br><span class="hint">奖励在免费额度用完后自动抵扣，不会过期</span>`;
+          `<br><span class="hint">奖励在免费额度用完后自动抵扣，不会过期` +
+          (isMember ? " · 👑 会员每天可领 3 次" : " · 注册登录后每天可领 3 次 👑") + `</span>`;
         return s;
       } catch (e) { return null; }
     };

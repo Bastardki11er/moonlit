@@ -172,7 +172,13 @@ app.use(express.static(path.join(__dirname, "..", "frontend")));
    Each visitor (by user id, stored in their browser) gets a few
    free readings per day. After that, the API says "payment required".
    Usage is tracked in the database (daily_usage table). */
-const FREE_PER_DAY = parseInt(process.env.FREE_READINGS_PER_DAY || "3", 10);
+/* 每日免费额度：游客 3 次，注册用户 5 次（注册是"更爽"不是"卡脖子"）。
+   只有 PAYMENTS_ENABLED=true 时才真正扣额度；现在全免费阶段大家无限玩。 */
+const FREE_PER_DAY = parseInt(process.env.FREE_READINGS_PER_DAY || "3", 10); // 游客
+const FREE_PER_DAY_MEMBER = parseInt(process.env.FREE_READINGS_PER_DAY_MEMBER || "5", 10); // 注册用户
+function dailyQuota(user) {
+  return userdb.isRegistered(user.id) ? FREE_PER_DAY_MEMBER : FREE_PER_DAY;
+}
 
 /* Token from the Authorization header ("Bearer <token>"). */
 function getBearerToken(req) {
@@ -204,27 +210,39 @@ function resolveUser(req) {
    anonymous id — the frontend saves it in localStorage. */
 app.post("/api/user/init", initLimiter, (req, res) => {
   const user = resolveUser(req);
-  // Referral: ?ref=<userId> — newcomer + referrer each earn a bonus reading.
-  let referralApplied = false;
+  // Referral: ?ref=<userId> — newcomer + referrer each earn bonus readings
+  // （推荐人是注册用户时双方各 +2，否则 +1）。
+  let referralApplied = false, referralReward = 0;
   try {
     const ref = req.body && typeof req.body.ref === "string" ? req.body.ref.trim() : "";
-    if (ref) referralApplied = !!userdb.applyReferral(user.id, ref).applied;
+    if (ref) {
+      const r = userdb.applyReferral(user.id, ref);
+      referralApplied = !!r.applied;
+      referralReward = r.rewardAmount || 0;
+    }
   } catch (e) { /* referral is best-effort, never blocks init */ }
   res.json({
     userId: user.id,
+    isMember: userdb.isRegistered(user.id),
+    freePerDay: dailyQuota(user),
     readingsTotal: user.readings_total,
     paidReadings: user.paid_readings,
     bonusReadings: userdb.getBonusReadings(user.id),
     shareGrantsLeft: userdb.shareGrantsLeftToday(user.id),
     referralApplied,
-    freeLeft: userdb.freeLeftToday(user.id, FREE_PER_DAY),
+    referralReward,
+    freeLeft: userdb.freeLeftToday(user.id, dailyQuota(user)),
+    // 注册用户今天是否还有"首次追问免费"（付费开启后才有意义；全免费阶段追问本来就不扣费）
+    followupFree: userdb.isRegistered(user.id) && userdb.followupsToday(user.id) === 0,
   });
 });
 
 /* ---------- reading history for "我的记录" ---------- */
 app.get("/api/user/readings", (req, res) => {
   const user = userdb.getOrCreateUser(req.query.userId);
-  res.json({ readings: userdb.getReadings(user.id, 30) });
+  // 注册用户历史记录 100 条云同步，游客 30 条。
+  const limit = userdb.isRegistered(user.id) ? 100 : 30;
+  res.json({ readings: userdb.getReadings(user.id, limit), isMember: userdb.isRegistered(user.id) });
 });
 app.get("/api/user/reading/:id", (req, res) => {
   const user = userdb.getOrCreateUser(req.query.userId);
@@ -232,6 +250,10 @@ app.get("/api/user/reading/:id", (req, res) => {
   if (!r) return res.status(404).json({ error: "Not found." });
   res.json({ reading: r });
 });
+
+/* 命理排盘种类（出生信息记忆接口也要用，所以定义提前） */
+const DIVINATION_KINDS = ["bazi", "ziwei", "astro"];
+const DIVINATION_NAMES = { bazi: "八字命盘", ziwei: "紫微斗数", astro: "西方星盘" };
 
 /* ---------- email accounts: register / login / logout ----------
    Passwords are hashed with scrypt (Node built-in crypto).
@@ -295,6 +317,32 @@ app.get("/api/auth/me", (req, res) => {
     userdb.attachUserToAccount(user.id, sess.accountId);
   }
   res.json({ email: sess.email, userId: user.id });
+});
+
+/* ---------- 出生信息记忆（注册用户专享） ----------
+   保存八字/紫微/星盘的出生信息，下次一键填入。只认登录态（Bearer token），
+   游客调这个接口会 401。字段走 validateBirthInput 校验，和排盘同一套规则。 */
+app.get("/api/profile/birth", (req, res) => {
+  const sess = userdb.getSessionAccount(getBearerToken(req));
+  if (!sess) return res.status(401).json({ error: "登录后可使用出生信息记忆。" });
+  const user = userdb.getUserForAccount(sess.accountId);
+  res.json({ profile: user ? userdb.getBirthProfile(user.id) : null });
+});
+
+app.post("/api/profile/birth", infoLimiter, (req, res) => {
+  const sess = userdb.getSessionAccount(getBearerToken(req));
+  if (!sess) return res.status(401).json({ error: "登录后可保存出生信息。" });
+  const kind = (req.body && req.body.kind) || "bazi";
+  if (!DIVINATION_KINDS.includes(kind)) return res.status(400).json({ error: "没有这种排盘。" });
+  const v = validateBirthInput(req.body, { needLocation: kind === "astro" });
+  if (!v.ok) return res.status(400).json({ error: v.error });
+  let user = userdb.getUserForAccount(sess.accountId);
+  if (!user) {
+    user = userdb.getOrCreateUser(null);
+    userdb.attachUserToAccount(user.id, sess.accountId);
+  }
+  userdb.saveBirthProfile(user.id, { ...v.clean, kind });
+  res.json({ ok: true });
 });
 
 /* ---------- admin dashboard (token protected) ----------
@@ -470,7 +518,7 @@ app.post("/api/reading", readingLimiter, async (req, res) => {
         usedPaidPack = true; // they bought readings — let them in
       } else if (userdb.useBonusReadings(user.id, cost)) {
         usedBonus = true; // 分享赚来的免费次数
-      } else if (userdb.freeLeftToday(user.id, FREE_PER_DAY) < cost) {
+      } else if (userdb.freeLeftToday(user.id, dailyQuota(user)) < cost) {
         // No paid readings and no free readings left -> paywall
         return res.status(402).json({
           error: `Free readings used up for today. Unlock ${READINGS_PER_PACK} more for ¥${PRICE_CNY} ✨`,
@@ -493,7 +541,7 @@ app.post("/api/reading", readingLimiter, async (req, res) => {
       reading,
       readingId,
       userId: user.id,
-      freeLeft: userdb.freeLeftToday(user.id, FREE_PER_DAY),
+      freeLeft: userdb.freeLeftToday(user.id, dailyQuota(user)),
     });
   } catch (err) {
     console.error("Reading failed:", err.message);
@@ -519,13 +567,16 @@ app.post("/api/reading/followup", readingLimiter, async (req, res) => {
     }
 
     // Same quota rules as a reading (skipped while PAYMENTS_ENABLED=false).
-    let usedPaidPack = false, usedBonus = false;
+    // 注册用户每天首次追问免费（追问 prompt 短、成本低，当会员小福利）。
+    let usedPaidPack = false, usedBonus = false, usedFreeFollowup = false;
     if (PAYMENTS_ENABLED) {
-      if (userdb.usePaidReadings(user.id, 1)) {
+      if (userdb.isRegistered(user.id) && userdb.followupsToday(user.id) === 0) {
+        usedFreeFollowup = true;
+      } else if (userdb.usePaidReadings(user.id, 1)) {
         usedPaidPack = true;
       } else if (userdb.useBonusReadings(user.id, 1)) {
         usedBonus = true; // 分享赚来的免费次数
-      } else if (userdb.freeLeftToday(user.id, FREE_PER_DAY) < 1) {
+      } else if (userdb.freeLeftToday(user.id, dailyQuota(user)) < 1) {
         return res.status(402).json({
           error: `Free readings used up for today. Unlock ${READINGS_PER_PACK} more for ¥${PRICE_CNY} ✨`,
           paymentRequired: true,
@@ -538,11 +589,12 @@ app.post("/api/reading/followup", readingLimiter, async (req, res) => {
     const answer = await askAI(prompt);
 
     userdb.saveFollowup(reading.id, user.id, question, answer);
-    if (!usedPaidPack && !usedBonus) userdb.countReadingToday(user.id, 1);
+    if (!usedPaidPack && !usedBonus && !usedFreeFollowup) userdb.countReadingToday(user.id, 1);
 
     res.json({
       answer,
-      freeLeft: userdb.freeLeftToday(user.id, FREE_PER_DAY),
+      freeFollowupUsed: usedFreeFollowup,
+      freeLeft: userdb.freeLeftToday(user.id, dailyQuota(user)),
     });
   } catch (err) {
     console.error("Follow-up failed:", err.message);
@@ -558,8 +610,6 @@ app.post("/api/reading/followup", readingLimiter, async (req, res) => {
    The chart is calculated by OUR code (taibu-core, MIT) from validated
    birth data — the client can never inject prompt text through it.
    Each reading costs 1 quota, same as a tarot reading. */
-const DIVINATION_KINDS = ["bazi", "ziwei", "astro"];
-const DIVINATION_NAMES = { bazi: "八字命盘", ziwei: "紫微斗数", astro: "西方星盘" };
 
 app.post("/api/divination/:kind", readingLimiter, async (req, res) => {
   try {
@@ -579,7 +629,7 @@ app.post("/api/divination/:kind", readingLimiter, async (req, res) => {
         usedPaidPack = true;
       } else if (userdb.useBonusReadings(user.id, 1)) {
         usedBonus = true; // 分享赚来的免费次数
-      } else if (userdb.freeLeftToday(user.id, FREE_PER_DAY) < 1) {
+      } else if (userdb.freeLeftToday(user.id, dailyQuota(user)) < 1) {
         return res.status(402).json({
           error: `Free readings used up for today. Unlock ${READINGS_PER_PACK} more for ¥${PRICE_CNY} ✨`,
           paymentRequired: true,
@@ -598,7 +648,7 @@ app.post("/api/divination/:kind", readingLimiter, async (req, res) => {
 
     res.json({ id, kind, name: DIVINATION_NAMES[kind], chart: chartJson, reading,
                extra: kind === "astro" ? extra : undefined,
-               freeLeft: userdb.freeLeftToday(user.id, FREE_PER_DAY) });
+               freeLeft: userdb.freeLeftToday(user.id, dailyQuota(user)) });
   } catch (err) {
     console.error("Divination failed:", err.message);
     res.status(500).json({ error: "排盘失败，请稍后再试。" });
@@ -828,7 +878,7 @@ require("./db").init().then((api) => {
   app.listen(PORT, () => {
     console.log(`🌙 Moonlit running at http://localhost:${PORT}`);
     console.log(`   AI provider: ${process.env.AI_PROVIDER || "doubao"}`);
-    console.log(`   Free readings/day per visitor: ${FREE_PER_DAY}`);
+    console.log(`   Free readings/day: guest ${FREE_PER_DAY}, member ${FREE_PER_DAY_MEMBER}`);
     console.log(`   XorPay: ${xorpayReady() ? "connected" : "not configured"}`);
     console.log(`   Payments: ${PAYMENTS_ENABLED ? `ON — ¥${PRICE_CNY} for ${READINGS_PER_PACK} readings` : "OFF (free for everyone)"}`);
   });
