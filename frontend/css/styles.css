@@ -388,6 +388,8 @@ input[type="number"]::-webkit-inner-spin-button { opacity: .4; }
 .reading.loading { color: var(--muted); font-style: italic; }
 
 footer { text-align: center; color: var(--muted); font-size: .85rem; margin-top: 2.5rem; font-family: Arial, sans-serif; line-height: 1.8; }
+footer a { color: var(--gold); text-decoration: none; }
+footer a:hover { text-decoration: underline; }
 
 @media (max-width: 520px) {
   :root { --card-w: 100px; --card-h: 150px; }
