@@ -165,12 +165,27 @@ function ok(cond, name) {
     });
     return { status: res.status, json: await res.json().catch(() => ({})) };
   };
+  const readCode = async (email) => {
+    const initSqlJs = require("sql.js");
+    const SQL = await initSqlJs();
+    const db = new SQL.Database(fs.readFileSync(path.join(dir, "backend", "moonlit.db")));
+    const stmt = db.prepare("SELECT code FROM email_codes WHERE email = ? AND purpose = 'register'");
+    stmt.bind([email]);
+    const code = stmt.step() ? stmt.getAsObject().code : null;
+    stmt.free(); db.close();
+    return code;
+  };
+  const registerWithCode = async (email) => {
+    const sc = await post("/api/auth/send-code", { email, purpose: "register" });
+    if (sc.status !== 200) throw new Error("send-code failed: " + JSON.stringify(sc.json));
+    return post("/api/auth/register", { email, password: "123456", code: await readCode(email) });
+  };
   try {
     const c1 = await post("/api/checkin", {});
     ok(c1.status === 401 && c1.json.needLogin === true, "游客签到 401 引导登录");
     const s1 = await post("/api/share-grant", {});
     ok(s1.status === 401 && s1.json.needLogin === true, "游客分享领取 401 引导登录");
-    const reg = await post("/api/auth/register", { email: "gate@test.com", password: "123456" });
+    const reg = await registerWithCode("gate@test.com");
     ok(reg.status === 200 && !!reg.json.token, "注册成功拿 token");
     const H = { Authorization: "Bearer " + reg.json.token };
     const c2 = await post("/api/checkin", {}, H);

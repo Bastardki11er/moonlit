@@ -27,6 +27,25 @@ async function req(method, p, { body, headers } = {}) {
   return { status: res.status, json, headers: res.headers };
 }
 
+// 注册带验证码完整流程：发码 → 从本地 DB 读码（测试与服务器同机）→ 注册
+async function readCodeFromDb(email) {
+  const initSqlJs = require("sql.js");
+  const SQL = await initSqlJs();
+  const dbPath = path.join(__dirname, "..", "backend", "moonlit.db");
+  const db = new SQL.Database(fs.readFileSync(dbPath));
+  const stmt = db.prepare("SELECT code FROM email_codes WHERE email = ? AND purpose = 'register'");
+  stmt.bind([email]);
+  const code = stmt.step() ? stmt.getAsObject().code : null;
+  stmt.free(); db.close();
+  return code;
+}
+async function registerMember(email) {
+  const sc = await req("POST", "/api/auth/send-code", { body: { email, purpose: "register" } });
+  if (sc.status !== 200) throw new Error("send-code failed: " + JSON.stringify(sc.json));
+  return req("POST", "/api/auth/register",
+    { body: { email, password: "123456", code: await readCodeFromDb(email) } });
+}
+
 (async () => {
   console.log("— live API tests against", BASE);
 
@@ -70,8 +89,7 @@ async function req(method, p, { body, headers } = {}) {
   r = await req("POST", "/api/share-grant", { body: { userId: tu } });
   ok("share-grant guest -> 401 needLogin", r.status === 401 && r.json?.needLogin === true,
     `got ${r.status} ${JSON.stringify(r.json)?.slice(0, 60)}`);
-  const regR = await req("POST", "/api/auth/register",
-    { body: { email: "sec" + Date.now() + "@test.com", password: "123456" } });
+  const regR = await registerMember("sec" + Date.now() + "@test.com");
   const AH = { Authorization: "Bearer " + regR.json.token };
   r = await req("POST", "/api/share-grant", { headers: AH });
   ok("share-grant member #1 -> ok, bonus=1", r.status === 200 && r.json?.ok === true && r.json?.bonus === 1,
@@ -131,6 +149,12 @@ async function req(method, p, { body, headers } = {}) {
   // 10. auth validation still fine
   r = await req("POST", "/api/auth/register", { body: { email: "bad", password: "secret123" } });
   ok("register with bad email -> 400", r.status === 400, `got ${r.status}`);
+  r = await req("POST", "/api/auth/register",
+    { body: { email: "nocode" + Date.now() + "@test.com", password: "secret123" } });
+  ok("register without email code -> 400", r.status === 400 && /验证码/.test(r.json?.error || ""),
+    `got ${r.status} ${JSON.stringify(r.json)?.slice(0, 60)}`);
+  r = await req("POST", "/api/auth/send-code", { body: { email: "bad", purpose: "register" } });
+  ok("send-code with bad email -> 400", r.status === 400, `got ${r.status}`);
 
   // 11. unknown API route -> JSON 404
   r = await req("GET", "/api/nope");

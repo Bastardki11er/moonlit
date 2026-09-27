@@ -95,6 +95,15 @@ CREATE TABLE IF NOT EXISTS sessions (
   expires_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_sessions_account ON sessions(account_id);
+CREATE TABLE IF NOT EXISTS email_codes (
+  email      TEXT NOT NULL,
+  purpose    TEXT NOT NULL DEFAULT 'register', -- register | reset
+  code       TEXT NOT NULL,                     -- 6 位数字
+  attempts   INTEGER NOT NULL DEFAULT 0,        -- 验错次数，超限作废
+  expires_at TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (email, purpose)
+);
 CREATE TABLE IF NOT EXISTS divinations (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id      TEXT NOT NULL REFERENCES users(id),
@@ -531,6 +540,57 @@ function recentUsers(limit = 20) {
   );
 }
 
+/* ---------- 邮箱验证码 ----------
+   注册 / 找回密码用。6 位数字，10 分钟有效，一次性使用，
+   连续验错 5 次作废。发码频率由 server 层的限流 + 60 秒冷却控制。 */
+const EMAIL_CODE_TTL_MS = 10 * 60 * 1000;
+const EMAIL_CODE_MAX_ATTEMPTS = 5;
+
+function createEmailCode(email, purpose = "register") {
+  email = String(email).trim().toLowerCase();
+  const code = String(crypto.randomInt(0, 1000000)).padStart(6, "0");
+  const exp = new Date(Date.now() + EMAIL_CODE_TTL_MS).toISOString();
+  run(
+    `INSERT INTO email_codes (email, purpose, code, attempts, expires_at, created_at)
+     VALUES (?, ?, ?, 0, ?, ?)
+     ON CONFLICT(email, purpose) DO UPDATE SET
+       code = excluded.code, attempts = 0,
+       expires_at = excluded.expires_at, created_at = excluded.created_at`,
+    [email, purpose, code, exp, now()]
+  );
+  return code;
+}
+
+// 上次发码时间（秒级冷却用），没有返回 null。
+function emailCodeSentAt(email, purpose = "register") {
+  const row = get("SELECT created_at FROM email_codes WHERE email = ? AND purpose = ?",
+    [String(email).trim().toLowerCase(), purpose]);
+  return row ? row.created_at : null;
+}
+
+function verifyEmailCode(email, code, purpose = "register") {
+  email = String(email).trim().toLowerCase();
+  const row = get("SELECT * FROM email_codes WHERE email = ? AND purpose = ?",
+    [email, purpose]);
+  if (!row) return { ok: false, error: "请先点击发送验证码。" };
+  if (row.expires_at < now()) {
+    run("DELETE FROM email_codes WHERE email = ? AND purpose = ?", [email, purpose]);
+    return { ok: false, error: "验证码已过期，请重新获取。" };
+  }
+  if (row.attempts >= EMAIL_CODE_MAX_ATTEMPTS) {
+    run("DELETE FROM email_codes WHERE email = ? AND purpose = ?", [email, purpose]);
+    return { ok: false, error: "尝试次数太多，请重新获取验证码。" };
+  }
+  if (row.code !== String(code || "").trim()) {
+    run("UPDATE email_codes SET attempts = attempts + 1 WHERE email = ? AND purpose = ?",
+      [email, purpose]);
+    return { ok: false, error: "验证码不对，再检查一下。" };
+  }
+  // 一次性：验过即删
+  run("DELETE FROM email_codes WHERE email = ? AND purpose = ?", [email, purpose]);
+  return { ok: true };
+}
+
 /* ---------- email accounts & sessions ---------- */
 
 // scrypt password hashing (Node built-in crypto, no new dependency).
@@ -746,6 +806,10 @@ const api = {
   getStats,
   recentReadings,
   recentUsers,
+  // email verification codes
+  createEmailCode,
+  emailCodeSentAt,
+  verifyEmailCode,
   // email accounts
   hashPassword,
   verifyPassword,

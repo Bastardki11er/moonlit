@@ -1178,6 +1178,8 @@ function setAuthMode(mode) {
   $("auth-tab-register").classList.toggle("active", mode === "register");
   $("auth-submit").textContent = mode === "login" ? "登录" : "注册";
   $("auth-password2").hidden = mode === "login";
+  $("auth-code-row").hidden = mode === "login";
+  $("auth-code").required = mode === "register";
   $("auth-password").setAttribute("autocomplete",
     mode === "login" ? "current-password" : "new-password");
   hideAuthError();
@@ -1218,6 +1220,51 @@ $("auth-modal").addEventListener("click", (e) => {
 $("auth-tab-login").addEventListener("click", () => setAuthMode("login"));
 $("auth-tab-register").addEventListener("click", () => setAuthMode("register"));
 
+// 发送邮箱验证码（注册用），60 秒倒计时防连点
+let codeCountdown = null;
+function startCodeCountdown(sec) {
+  const btn = $("auth-send-code");
+  clearInterval(codeCountdown);
+  btn.disabled = true;
+  btn.textContent = sec + "s 后重发";
+  codeCountdown = setInterval(() => {
+    sec--;
+    if (sec <= 0) {
+      clearInterval(codeCountdown);
+      btn.disabled = false;
+      btn.textContent = "发送验证码";
+    } else {
+      btn.textContent = sec + "s 后重发";
+    }
+  }, 1000);
+}
+$("auth-send-code").addEventListener("click", async () => {
+  hideAuthError();
+  const email = $("auth-email").value.trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    showAuthError("请先填写有效的邮箱地址。");
+    $("auth-email").focus();
+    return;
+  }
+  const btn = $("auth-send-code");
+  btn.disabled = true;
+  btn.textContent = "发送中…";
+  try {
+    const res = await fetch("/api/auth/send-code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, purpose: "register" }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "发送失败，请重试。");
+    startCodeCountdown(60);
+  } catch (err) {
+    showAuthError(err.message);
+    btn.disabled = false;
+    btn.textContent = "发送验证码";
+  }
+});
+
 $("auth-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   hideAuthError();
@@ -1225,6 +1272,11 @@ $("auth-form").addEventListener("submit", async (e) => {
   const password = $("auth-password").value;
   if (authMode === "register" && password !== $("auth-password2").value) {
     showAuthError("两次输入的密码不一致。");
+    return;
+  }
+  const code = authMode === "register" ? $("auth-code").value.trim() : undefined;
+  if (authMode === "register" && !/^\d{6}$/.test(code)) {
+    showAuthError("请输入 6 位邮箱验证码。");
     return;
   }
   const btn = $("auth-submit");
@@ -1235,7 +1287,7 @@ $("auth-form").addEventListener("submit", async (e) => {
     const res = await fetch("/api/auth/" + authMode, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, userId: moonlitUserId }),
+      body: JSON.stringify({ email, password, userId: moonlitUserId, code }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "出错了，请重试。");

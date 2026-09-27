@@ -32,6 +32,7 @@ const { isValidUUID, validateReadingInput, validateFollowupInput,
 const { buildReading, calcAstro } = require("./divination");
 const { calculateDailyAlmanac } = require("taibu-core/almanac");
 const { ragStatus } = require("./ziwei-rag");
+const emailer = require("./email");
 // NOTE: the database needs async init (WebAssembly). userdb is assigned
 // at the bottom of this file before the server starts listening.
 let userdb = null;
@@ -68,6 +69,10 @@ const infoLimiter = rateLimit({ windowMs: 60 * 1000, max: 60,
   message: "请求太频繁了，稍后再试。" });
 const shareLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 20,
   message: "分享太频繁了，休息一下再来吧。" });
+// 验证码发送：5 次/分钟/IP + 同一邮箱 60 秒冷却（防短信轰炸式刷邮件）
+const codeLimiter = rateLimit({ windowMs: 60 * 1000, max: 5,
+  message: "发送太频繁了，稍后再试。" });
+const CODE_RESEND_COOLDOWN_MS = 60 * 1000;
 function checkAdmin(req, res, next) {
   if (!ADMIN_TOKEN) return res.status(503).json({ error: "Admin is not configured." });
   const t = req.query.token || req.headers["x-admin-token"];
@@ -264,13 +269,50 @@ const DIVINATION_NAMES = { bazi: "八字命盘", ziwei: "紫微斗数", astro: "
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/* ---------- 邮箱验证码 ----------
+   POST /api/auth/send-code { email, purpose } → 发送 6 位验证码。
+   purpose 目前只支持 "register"（注册），"reset"（找回密码）以后接。
+   未配置 SMTP 时进入 dev 模式：验证码打到服务器控制台，不真发邮件。 */
+app.post("/api/auth/send-code", codeLimiter, async (req, res) => {
+  const { email, purpose } = req.body || {};
+  const p = purpose || "register";
+  if (!email || !EMAIL_RE.test(String(email))) {
+    return res.status(400).json({ error: "请输入有效的邮箱地址。" });
+  }
+  if (p !== "register") {
+    return res.status(400).json({ error: "不支持的用途。" });
+  }
+  const mail = String(email).trim().toLowerCase();
+  if (userdb.getAccountByEmail(mail)) {
+    return res.status(400).json({ error: "这个邮箱已经注册过了，直接登录吧。" });
+  }
+  // 同一邮箱 60 秒内只能发一次
+  const last = userdb.emailCodeSentAt(mail, p);
+  if (last && Date.now() - new Date(last).getTime() < CODE_RESEND_COOLDOWN_MS) {
+    return res.status(429).json({ error: "验证码刚发过，60 秒后再试。" });
+  }
+  const code = userdb.createEmailCode(mail, p);
+  try {
+    await emailer.sendEmailCode(mail, code);
+  } catch (e) {
+    console.error("send email code failed:", e.message);
+    return res.status(500).json({ error: "邮件发送失败，请稍后重试。" });
+  }
+  res.json({ ok: true, dev: !emailer.isConfigured() });
+});
+
 app.post("/api/auth/register", authLimiter, (req, res) => {
-  const { email, password, userId } = req.body || {};
+  const { email, password, userId, code } = req.body || {};
   if (!email || !EMAIL_RE.test(String(email))) {
     return res.status(400).json({ error: "请输入有效的邮箱地址。" });
   }
   if (!password || String(password).length < 6) {
     return res.status(400).json({ error: "密码至少 6 位。" });
+  }
+  // 验证码必填：验过即作废，一次性使用
+  const v = userdb.verifyEmailCode(String(email), code, "register");
+  if (!v.ok) {
+    return res.status(400).json({ error: v.error });
   }
   const acc = userdb.createAccount(email, String(password));
   if (acc.error === "exists") {

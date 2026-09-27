@@ -99,7 +99,22 @@ pm2 save
 pm2 startup   # 按它输出的那行命令再跑一次，开机自启
 ```
 
-## 5. 上线前检查单
+## 5. 邮箱验证码（QQ 邮箱 SMTP，免费）
+
+注册强制验证邮箱，验证码走你的 QQ 邮箱发出。先在 QQ 邮箱网页版开 SMTP：
+
+1. 登录 QQ 邮箱 → 左上角**设置** → **账号** → 找到 **POP3/IMAP/SMTP/Exchange/CardDAV 服务**
+2. 开启 **SMTP 服务**（按提示用手机验证），然后点**生成授权码** → 复制那串授权码
+3. 服务器上编辑 `.env`，加上：
+   ```
+   SMTP_USER=你的QQ号@qq.com
+   SMTP_PASS=刚才复制的授权码（不是 QQ 密码！）
+   ```
+   然后 `npm install`（新依赖 nodemailer）+ `pm2 restart moonlit`
+
+说明：QQ 邮箱每天免费发几百封，验证码量完全够用；不配也能跑（验证码打到服务器日志里，方便测试），但上线前务必配好。
+
+## 6. 上线前检查单
 
 - [ ] `.env` 里 `ADMIN_TOKEN` 已设（没设则后台接口全部 503）
 - [ ] `PAYMENTS_ENABLED=false`（收费前保持关闭）
