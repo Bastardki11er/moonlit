@@ -64,17 +64,26 @@ async function req(method, p, { body, headers } = {}) {
   ok("almanac bad date -> 400", r.status === 400, `got ${r.status}`);
   r = await req("GET", "/api/almanac?date=2019-05-05");
   ok("almanac out-of-range date -> 400", r.status === 400, `got ${r.status}`);
-  // share grant: 2 ok, 3rd capped
+  // share grant: 游客 401（需登录），会员 3 次 ok、第 4 次 cap
   const mk = await req("POST", "/api/user/init", { body: {} });
   const tu = mk.json.userId;
   r = await req("POST", "/api/share-grant", { body: { userId: tu } });
-  ok("share-grant #1 -> ok, bonus=1", r.status === 200 && r.json?.ok === true && r.json?.bonus === 1,
+  ok("share-grant guest -> 401 needLogin", r.status === 401 && r.json?.needLogin === true,
     `got ${r.status} ${JSON.stringify(r.json)?.slice(0, 60)}`);
-  r = await req("POST", "/api/share-grant", { body: { userId: tu } });
-  ok("share-grant #2 -> ok, bonus=2", r.status === 200 && r.json?.ok === true && r.json?.bonus === 2,
+  const regR = await req("POST", "/api/auth/register",
+    { body: { email: "sec" + Date.now() + "@test.com", password: "123456" } });
+  const AH = { Authorization: "Bearer " + regR.json.token };
+  r = await req("POST", "/api/share-grant", { headers: AH });
+  ok("share-grant member #1 -> ok, bonus=1", r.status === 200 && r.json?.ok === true && r.json?.bonus === 1,
+    `got ${r.status} ${JSON.stringify(r.json)?.slice(0, 60)}`);
+  r = await req("POST", "/api/share-grant", { headers: AH });
+  ok("share-grant member #2 -> ok, bonus=2", r.status === 200 && r.json?.ok === true && r.json?.bonus === 2,
     `got ${r.status}`);
-  r = await req("POST", "/api/share-grant", { body: { userId: tu } });
-  ok("share-grant #3 -> daily cap", r.status === 200 && r.json?.ok === false && r.json?.reason === "daily_cap",
+  r = await req("POST", "/api/share-grant", { headers: AH });
+  ok("share-grant member #3 -> ok, bonus=3", r.status === 200 && r.json?.ok === true && r.json?.bonus === 3,
+    `got ${r.status}`);
+  r = await req("POST", "/api/share-grant", { headers: AH });
+  ok("share-grant member #4 -> daily cap", r.status === 200 && r.json?.ok === false && r.json?.reason === "daily_cap",
     `got ${r.status} ${JSON.stringify(r.json)?.slice(0, 60)}`);
   // referral: newcomer via ref link -> both get +1
   const refMk = await req("POST", "/api/user/init", { body: {} });
@@ -93,14 +102,17 @@ async function req(method, p, { body, headers } = {}) {
   ok("self-referral rejected", selfRef.json?.referralApplied !== true, `got ${JSON.stringify(selfRef.json)?.slice(0, 60)}`);
   const dblRef = await req("POST", "/api/user/init", { body: { userId: newMk.json.userId, ref: referrer } });
   ok("second referral for same user rejected", dblRef.json?.referralApplied !== true);
-  // checkin: first ok, duplicate ok, streak sane
+  // checkin: 游客 401（需登录），会员 first ok、duplicate 不计、status 正常
   r = await req("POST", "/api/checkin", { body: { userId: tu } });
-  ok("checkin first -> ok streak>=1", r.status === 200 && r.json?.ok === true && (r.json?.streak || 0) >= 1,
+  ok("checkin guest -> 401 needLogin", r.status === 401 && r.json?.needLogin === true,
     `got ${r.status} ${JSON.stringify(r.json)?.slice(0, 60)}`);
-  r = await req("POST", "/api/checkin", { body: { userId: tu } });
-  ok("checkin duplicate -> ok, no double count", r.status === 200 && r.json?.duplicate === true,
+  r = await req("POST", "/api/checkin", { headers: AH });
+  ok("checkin member first -> ok streak>=1", r.status === 200 && r.json?.ok === true && (r.json?.streak || 0) >= 1,
+    `got ${r.status} ${JSON.stringify(r.json)?.slice(0, 60)}`);
+  r = await req("POST", "/api/checkin", { headers: AH });
+  ok("checkin member duplicate -> ok, no double count", r.status === 200 && r.json?.duplicate === true,
     `got ${r.status}`);
-  r = await req("GET", "/api/checkin/status?userId=" + tu);
+  r = await req("GET", "/api/checkin/status", { headers: AH });
   ok("checkin status -> checkedInToday", r.status === 200 && r.json?.checkedInToday === true,
     `got ${r.status}`);
 

@@ -604,8 +604,13 @@ function attachUserToAccount(userId, accountId) {
 // Move everything from an anonymous user row into the account's user row.
 function mergeUsers(fromUserId, toUserId) {
   if (!fromUserId || fromUserId === toUserId) return;
+  // 注册/登录时把游客时期的全部数据并入账号，一条不丢
   run("UPDATE readings SET user_id = ? WHERE user_id = ?", [toUserId, fromUserId]);
+  run("UPDATE followups SET user_id = ? WHERE user_id = ?", [toUserId, fromUserId]);
+  run("UPDATE divinations SET user_id = ? WHERE user_id = ?", [toUserId, fromUserId]);
+  run("UPDATE journal SET user_id = ? WHERE user_id = ?", [toUserId, fromUserId]);
   run("UPDATE orders SET user_id = ? WHERE user_id = ?", [toUserId, fromUserId]);
+  run("UPDATE birth_profiles SET user_id = ? WHERE user_id = ?", [toUserId, fromUserId]);
   const rows = all("SELECT day, count FROM daily_usage WHERE user_id = ?", [fromUserId]);
   for (const r of rows) {
     run(
@@ -615,14 +620,33 @@ function mergeUsers(fromUserId, toUserId) {
     );
   }
   run("DELETE FROM daily_usage WHERE user_id = ?", [fromUserId]);
-  const from = get("SELECT readings_total, paid_readings FROM users WHERE id = ?", [fromUserId]);
+  // 分享/邀请攒的奖励次数累加
+  const from = get("SELECT readings_total, paid_readings, bonus_readings, referred_by FROM users WHERE id = ?", [fromUserId]);
   if (from) {
     run(
-      "UPDATE users SET readings_total = readings_total + ?, paid_readings = paid_readings + ? WHERE id = ?",
-      [from.readings_total || 0, from.paid_readings || 0, toUserId]
+      "UPDATE users SET readings_total = readings_total + ?, paid_readings = paid_readings + ?, bonus_readings = bonus_readings + ? WHERE id = ?",
+      [from.readings_total || 0, from.paid_readings || 0, from.bonus_readings || 0, toUserId]
     );
+    // 游客时期被邀请过、账号没有记录时，继承推荐关系（防重复领取由 applyReferral 兜底）
+    if (from.referred_by) {
+      run("UPDATE users SET referred_by = COALESCE(referred_by, ?) WHERE id = ?", [from.referred_by, toUserId]);
+    }
     run("DELETE FROM users WHERE id = ?", [fromUserId]);
   }
+  // 签到记录搬运（主键 user_id+day，账号已有则保留账号的）
+  run("INSERT OR IGNORE INTO checkins (user_id, day) SELECT ?, day FROM checkins WHERE user_id = ?",
+    [toUserId, fromUserId]);
+  run("DELETE FROM checkins WHERE user_id = ?", [fromUserId]);
+  // 分享领取记录按天合并
+  const grants = all("SELECT day, count FROM share_grants WHERE user_id = ?", [fromUserId]);
+  for (const g of grants) {
+    run(
+      `INSERT INTO share_grants (user_id, day, count) VALUES (?, ?, ?)
+       ON CONFLICT(user_id, day) DO UPDATE SET count = count + ?`,
+      [toUserId, g.day, g.count, g.count]
+    );
+  }
+  run("DELETE FROM share_grants WHERE user_id = ?", [fromUserId]);
 }
 
 /* ---------- divinations (bazi / ziwei / astro) ---------- */

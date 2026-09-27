@@ -770,11 +770,15 @@ app.get("/api/almanac", infoLimiter, async (req, res) => {
 });
 
 /* ---------- 分享赚免费次数 ----------
-   POST /api/share-grant  →  每天最多 2 次，每次 +1 bonus_readings。
-   bonus 在付费开启后按 免费→bonus→付费包 的顺序抵扣。 */
+   POST /api/share-grant  →  每天最多 2 次（会员 3 次），每次 +1 bonus_readings。
+   bonus 在付费开启后按 免费→bonus→付费包 的顺序抵扣。
+   领取需要登录：奖励次数是注册用户的福利，游客分享欢迎，但领奖先注册。 */
 app.post("/api/share-grant", shareLimiter, (req, res) => {
   try {
     const user = resolveUser(req);
+    if (!userdb.isRegistered(user.id)) {
+      return res.status(401).json({ error: "登录后分享可领取奖励次数，注册只要 10 秒 👑", needLogin: true });
+    }
     const r = userdb.grantShareBonus(user.id);
     res.json({ userId: user.id, ...r });
   } catch (err) {
@@ -793,10 +797,14 @@ app.get("/api/share-status", (req, res) => {
 
 /* ---------- 每日签到 ----------
    POST /api/checkin → { ok, streak, checkedInToday, rewardGranted }
-   GET  /api/checkin/status → { streak, checkedInToday } */
+   GET  /api/checkin/status → { streak, checkedInToday }
+   签到需要登录：连续签到是注册用户的回访福利，游客先注册再签到。 */
 app.post("/api/checkin", infoLimiter, (req, res) => {
   try {
     const user = resolveUser(req);
+    if (!userdb.isRegistered(user.id)) {
+      return res.status(401).json({ error: "登录后签到，连续 7 天得免费解读，签到记录云同步不丢失 👑", needLogin: true });
+    }
     res.json({ userId: user.id, ...userdb.doCheckin(user.id) });
   } catch (err) {
     console.error("Checkin failed:", err.message);

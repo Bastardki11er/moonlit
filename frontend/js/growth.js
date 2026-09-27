@@ -83,6 +83,17 @@
     setTimeout(() => toast(`🎉 受邀成功！你和朋友各得 +${n} 次免费解读`), 1200);
   };
 
+  /* 登录态变化后重绘增长区（app.js 的 setLoggedIn/setLoggedOut 会调用） */
+  window.__refreshGrowth = async function () {
+    if (typeof window.__refreshCheckin === "function") { try { await window.__refreshCheckin(); } catch (e) {} }
+    if (typeof window.__refreshShareEarn === "function") { try { await window.__refreshShareEarn(); } catch (e) {} }
+  };
+  const isMember = () => (typeof window.__moonlitMember !== "undefined" && window.__moonlitMember);
+  const needLogin = (msg) => {
+    toast(msg);
+    if (typeof window.__openAuthModal === "function") window.__openAuthModal();
+  };
+
   document.addEventListener("DOMContentLoaded", () => {
     initAlmanac();
     initHoroscope();
@@ -223,7 +234,7 @@
   }
 
   /* ============================================================
-     3. 每日签到
+     3. 每日签到（注册用户专享：连续签到是回访福利）
      ============================================================ */
   async function initCheckin() {
     const btn = $("checkin-btn"), info = $("checkin-info"), dots = $("checkin-dots");
@@ -231,25 +242,48 @@
     const paint = (streak, checkedIn) => {
       const toGo = 7 - (streak % 7 || (checkedIn ? 7 : 0));
       const filled = streak % 7;
-      // 注册用户签到满 7 天奖 +2，游客 +1
-      const rewardN = (typeof window.__moonlitMember !== "undefined" && window.__moonlitMember) ? 2 : 1;
       info.textContent = checkedIn
         ? `已连续签到 ${streak} 天 🎉`
         : (streak > 0 ? `已连续签到 ${streak} 天，今日还未签到` : "今日还未签到");
       dots.innerHTML = Array.from({ length: 7 }, (_, i) =>
         `<span class="ck-dot${i < filled ? " on" : ""}${i === 6 ? " gift" : ""}"></span>`).join("");
-      dots.title = `再签到 ${toGo} 天得 +${rewardN} 次免费解读`;
+      dots.title = "再签到 " + toGo + " 天得 +2 次免费解读";
       btn.disabled = checkedIn;
       btn.textContent = checkedIn ? "✅ 今日已签到" : "📅 每日签到";
     };
-    try {
-      const s = await (await authedFetch("/api/checkin/status")).json();
-      paint(s.streak || 0, !!s.checkedInToday);
-    } catch (e) { /* 离线时保持默认 */ }
+    const paintGuest = () => {
+      info.innerHTML = "👑 <b>登录后签到</b>：连续 7 天得 +2 次免费解读，签到记录云同步不丢失";
+      dots.innerHTML = Array.from({ length: 7 }, (_, i) =>
+        `<span class="ck-dot${i === 6 ? " gift" : ""}"></span>`).join("");
+      dots.title = "登录后签到，满 7 天得 +2 次免费解读";
+      btn.disabled = false;
+      btn.textContent = "👑 登录后签到";
+    };
+    const refresh = async () => {
+      if (!isMember()) { paintGuest(); return; }
+      try {
+        const s = await (await authedFetch("/api/checkin/status")).json();
+        paint(s.streak || 0, !!s.checkedInToday);
+      } catch (e) { /* 离线时保持默认 */ }
+    };
+    window.__refreshCheckin = refresh;
+    await refresh();
     btn.addEventListener("click", async () => {
+      if (!isMember()) {
+        needLogin("登录后签到，连续 7 天得免费解读 👑");
+        return;
+      }
       btn.disabled = true;
       try {
-        const r = await (await authedFetch("/api/checkin", { method: "POST" })).json();
+        const res = await authedFetch("/api/checkin", { method: "POST" });
+        if (res.status === 401) {
+          const d = await res.json().catch(() => ({}));
+          needLogin(d.error || "请先登录");
+          btn.disabled = false;
+          await refresh();
+          return;
+        }
+        const r = await res.json();
         paint(r.streak || 0, true);
         if (r.rewardGranted) toast(`🎉 连续签到 7 天！+${r.rewardAmount || 1} 次免费解读已到账`);
         else if (!r.duplicate) toast(`签到成功！已连续 ${r.streak} 天`);
@@ -261,28 +295,47 @@
   }
 
   /* ============================================================
-     4. 分享赚次数 + 邀请链接
+     4. 分享赚次数 + 邀请链接（领取奖励需要登录；分享传播本身不拦）
      ============================================================ */
   async function initShareEarn() {
     const box = $("share-earn");
     if (!box) return;
     const statusEl = $("share-status-line");
+    const descEl = $("share-earn-desc");
+    const paintDesc = () => {
+      if (!descEl) return;
+      descEl.innerHTML = isMember()
+        ? `把月光塔罗分享给朋友 —— 朋友通过你的链接进来，你们 <b>各得 +2 次</b>免费解读；每天分享最多再领 <b>3 次</b> 👑。`
+        : `把月光塔罗分享给朋友 —— 朋友通过你的链接进来，你们 <b>各得 +1 次</b>免费解读；<b>登录后</b>邀请各得 <b>+2 次</b>、每天分享最多再领 <b>3 次</b> 👑。`;
+    };
     const paint = async () => {
+      paintDesc();
+      if (!isMember()) {
+        statusEl.innerHTML =
+          `👑 <b>登录后分享赚次数</b>：每天最多 3 次免费解读，注册只要 10 秒` +
+          `<br><span class="hint">奖励在免费额度用完后自动抵扣，不会过期</span>`;
+        return null;
+      }
       try {
         const s = await (await authedFetch("/api/share-status")).json();
-        const isMember = (typeof window.__moonlitMember !== "undefined" && window.__moonlitMember);
         statusEl.innerHTML =
           `🎟 我的奖励次数：<b>${s.bonus || 0}</b> · 今日还可领取：<b>${s.grantsLeft || 0}</b> 次` +
-          `<br><span class="hint">奖励在免费额度用完后自动抵扣，不会过期` +
-          (isMember ? " · 👑 会员每天可领 3 次" : " · 注册登录后每天可领 3 次 👑") + `</span>`;
+          `<br><span class="hint">奖励在免费额度用完后自动抵扣，不会过期 · 👑 会员每天可领 3 次</span>`;
         return s;
       } catch (e) { return null; }
     };
+    window.__refreshShareEarn = paint;
     await paint();
 
     const grantOnce = async () => {
       try {
-        const r = await (await authedFetch("/api/share-grant", { method: "POST" })).json();
+        const res = await authedFetch("/api/share-grant", { method: "POST" });
+        if (res.status === 401) {
+          const d = await res.json().catch(() => ({}));
+          needLogin(d.error || "登录后分享可领取奖励次数 👑");
+          return;
+        }
+        const r = await res.json();
         await paint();
         if (r.ok) toast("🎉 +1 次免费解读已到账");
         else toast("今日领取次数已用完，明天再来");

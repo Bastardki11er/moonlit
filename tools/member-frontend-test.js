@@ -42,10 +42,9 @@ window.fetch = async (url, opts) => {
 global.fetch = window.fetch;
 
 async function main() {
-  // 登录态：会员
-  window.localStorage.setItem("moonlit_token", "tok123");
-  window.localStorage.setItem("moonlit_uid", "uid-1");
-  window.__moonlitMember = true;
+  // 先以游客态启动（不设 token，会员标记 false）
+  try { window.localStorage.removeItem("moonlit_token"); } catch (e) {}
+  window.__moonlitMember = false;
 
   // 按真实顺序加载：用 <script> 标签注入，和浏览器行为一致（全局 const 跨脚本共享）
   const load = (f) => {
@@ -62,6 +61,35 @@ async function main() {
 
   // DOMContentLoaded 触发 growth/divination 的初始化
   window.document.dispatchEvent(new window.Event("DOMContentLoaded", { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 300));
+
+  console.log("== 游客态：签到/分享引导登录 ==");
+  const cbtn = window.document.getElementById("checkin-btn");
+  ok(!!cbtn && cbtn.textContent.includes("登录后签到"), "游客签到按钮显示'登录后签到': " + (cbtn && cbtn.textContent));
+  let modalOpened = false;
+  const origOpen = window.__openAuthModal;
+  window.__openAuthModal = () => { modalOpened = true; };
+  cbtn.click();
+  await new Promise((r) => setTimeout(r, 150));
+  const toastG = window.document.getElementById("moonlit-toast");
+  ok(modalOpened, "游客点签到 → 打开登录弹窗");
+  ok(!!toastG && toastG.textContent.includes("登录后签到"), "游客点签到 → toast 引导: " + (toastG && toastG.textContent));
+  window.__openAuthModal = origOpen;
+  const statusLine = window.document.getElementById("share-status-line");
+  ok(!!statusLine && statusLine.innerHTML.includes("登录后分享赚次数"), "游客分享区引导登录");
+  const descGuest = window.document.getElementById("share-earn-desc");
+  ok(!!descGuest && descGuest.innerHTML.includes("各得 +1 次") && descGuest.innerHTML.includes("登录后"),
+    "游客分享文案：+1 且提示登录后更多");
+  const barGuest = window.document.getElementById("ziwei-memory-bar");
+  ok(!!barGuest && !barGuest.hidden && barGuest.textContent.includes("登录后"), "游客排盘页看到登录提示");
+  ok(!window.document.getElementById("ziwei-remember"), "游客没有记住复选框");
+
+  console.log("== 切会员态 ==");
+  window.localStorage.setItem("moonlit_token", "tok123");
+  window.localStorage.setItem("moonlit_uid", "uid-1");
+  window.__moonlitMember = true;
+  await window.__refreshGrowth();
+  window.__refreshBirthMemory();
   await new Promise((r) => setTimeout(r, 300));
 
   console.log("== 出生信息记忆 ==");
@@ -88,23 +116,15 @@ async function main() {
   ok(!!toast && toast.textContent.includes("+2"), "签到成功 toast 显示 +2: " + (toast && toast.textContent));
 
   console.log("== 分享区（会员文案） ==");
-  const statusLine = window.document.getElementById("share-status-line");
   await new Promise((r) => setTimeout(r, 300));
   ok(!!statusLine && statusLine.innerHTML.includes("每天可领 3 次"), "分享区提示会员每天 3 次");
+  const descMember = window.document.getElementById("share-earn-desc");
+  ok(!!descMember && descMember.innerHTML.includes("各得 +2 次"), "会员分享文案：邀请各得 +2");
 
   console.log("== 受邀 toast（+2） ==");
   window.__onReferralApplied(2);
   await new Promise((r) => setTimeout(r, 1400));
   ok(toast.textContent.includes("+2"), "受邀 toast 显示 +2: " + toast.textContent);
-
-  console.log("== 游客态 ==");
-  window.localStorage.removeItem("moonlit_token");
-  window.__moonlitMember = false;
-  window.__refreshBirthMemory();
-  await new Promise((r) => setTimeout(r, 300));
-  const bar2 = window.document.getElementById("ziwei-memory-bar");
-  ok(!!bar2 && !bar2.hidden && bar2.textContent.includes("登录后"), "游客看到登录提示");
-  ok(!window.document.getElementById("ziwei-remember"), "游客没有记住复选框");
 
   console.log("== 追问提示（会员首免） ==");
   window.__moonlitMember = true;

@@ -67,6 +67,7 @@ function setLoggedIn(token, email, userId) {
   }
   window.__moonlitMember = true;
   if (typeof window.__refreshBirthMemory === "function") window.__refreshBirthMemory();
+  if (typeof window.__refreshGrowth === "function") window.__refreshGrowth();
   renderAuthButton();
   updateHistoryBadge();
 }
@@ -77,6 +78,7 @@ function setLoggedOut() {
   try { localStorage.removeItem("moonlit_token"); } catch (e) {}
   window.__moonlitMember = false;
   if (typeof window.__refreshBirthMemory === "function") window.__refreshBirthMemory();
+  if (typeof window.__refreshGrowth === "function") window.__refreshGrowth();
   renderAuthButton();
 }
 
@@ -748,6 +750,16 @@ async function openHistory() {
     const data = await res.json();
     const items = data.readings || [];
     list.innerHTML = "";
+    // 游客提示：登录后历史云同步 100 条，换设备不丢失
+    if (!window.__moonlitMember) {
+      const tip = el("p", "hint history-login-tip",
+        `☁️ <a href="#" id="history-login-link">登录</a>后历史记录云同步 <b>100</b> 条，换设备不丢失，注册还送会员权益 👑`);
+      list.appendChild(tip);
+      tip.querySelector("#history-login-link").addEventListener("click", (e) => {
+        e.preventDefault();
+        openAuthModal();
+      });
+    }
     if (items.length === 0) {
       list.innerHTML = "<p class='hint'>还没有解读记录。问一个问题，抽一次牌，这里就会出现你的历史 ✨</p>";
       return;
@@ -1197,6 +1209,8 @@ function closeAuthModal() {
 }
 
 $("nav-auth").addEventListener("click", openAuthModal);
+// growth.js 的游客引导（签到/分享）需要能打开登录弹窗
+window.__openAuthModal = openAuthModal;
 $("auth-close").addEventListener("click", closeAuthModal);
 $("auth-modal").addEventListener("click", (e) => {
   if (e.target === $("auth-modal")) closeAuthModal();

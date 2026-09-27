@@ -20,6 +20,7 @@ function ok(cond, name) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "moonlit-perk-test-"));
   execSync(`cp -r ${path.join(__dirname, "..", "backend")} ${path.join(dir, "backend")}`);
   fs.symlinkSync(path.join(__dirname, "..", "node_modules"), path.join(dir, "node_modules"));
+  fs.symlinkSync(path.join(__dirname, "..", "frontend"), path.join(dir, "frontend")); // validate.js 要 require cards.js
   const userdb = await require(path.join(dir, "backend", "db.js")).init();
 
   // ---- 时间穿越：doCheckin 用 new Date() 取"今天"，patch 它就能模拟连续签到
@@ -127,6 +128,61 @@ function ok(cond, name) {
   for (let i = 0; i < 5; i++) userdb.saveReading(g2.id, { question: "q" + i, cards: [], readingText: "t" });
   ok(userdb.getReadings(g2.id, 3).length === 3, "limit=3 返回 3 条");
   ok(userdb.getReadings(g2.id, 100).length >= 5, "limit=100 能拿全");
+
+  console.log("== 注册合并游客数据 ==");
+  const gm = userdb.getOrCreateUser(null);
+  userdb.grantShareBonus(gm.id);                       // 奖励次数 +1
+  userdb.doCheckin(gm.id);                             // 签到 1 天
+  const gr = userdb.saveReading(gm.id, { question: "gq", cards: [], readingText: "gt" });
+  userdb.saveFollowup(gr, gm.id, "gqq", "gaa");         // 追问
+  userdb.saveDivination(gm.id, { kind: "bazi", input: {}, chartJson: {}, readingText: "t", question: "q" });
+  userdb.saveJournal(gm.id, { title: "t", content: "c" });
+  const accM = userdb.createAccount("merge@test.com", "123456");
+  const mm = userdb.getOrCreateUser(null);
+  userdb.attachUserToAccount(mm.id, accM.id);
+  userdb.mergeUsers(gm.id, mm.id);
+  ok(userdb.getBonusReadings(mm.id) === 1, "奖励次数合并进账号");
+  ok(userdb.checkinStreak(mm.id).streak === 1, "签到记录合并进账号");
+  ok(userdb.getReadings(mm.id, 100).length === 1, "解读记录合并进账号");
+  ok(userdb.followupsToday(mm.id) === 1, "追问记录合并进账号");
+  ok(userdb.getDivinations(mm.id, "bazi", 20).length === 1, "排盘记录合并进账号");
+  ok(userdb.listJournal(mm.id, 50).length === 1, "日记合并进账号");
+  ok(userdb.getBonusReadings(gm.id) === 0, "旧游客数据已清空");
+  ok(userdb.checkinStreak(gm.id).streak === 0, "旧游客签到已清空");
+
+  console.log("== 游客门禁（HTTP 401） ==");
+  const { spawn } = require("child_process");
+  const srv = spawn("node", [path.join(dir, "backend", "server.js")], {
+    env: { ...process.env, PORT: "34561", ADMIN_TOKEN: "test" },
+    stdio: "ignore",
+  });
+  await new Promise((r) => setTimeout(r, 3000));
+  const post = async (p, body, headers) => {
+    const res = await fetch("http://localhost:34561" + p, {
+      method: "POST",
+      headers: Object.assign({ "Content-Type": "application/json" }, headers || {}),
+      body: JSON.stringify(body || {}),
+    });
+    return { status: res.status, json: await res.json().catch(() => ({})) };
+  };
+  try {
+    const c1 = await post("/api/checkin", {});
+    ok(c1.status === 401 && c1.json.needLogin === true, "游客签到 401 引导登录");
+    const s1 = await post("/api/share-grant", {});
+    ok(s1.status === 401 && s1.json.needLogin === true, "游客分享领取 401 引导登录");
+    const reg = await post("/api/auth/register", { email: "gate@test.com", password: "123456" });
+    ok(reg.status === 200 && !!reg.json.token, "注册成功拿 token");
+    const H = { Authorization: "Bearer " + reg.json.token };
+    const c2 = await post("/api/checkin", {}, H);
+    ok(c2.status === 200 && c2.json.ok === true, "会员签到 ok");
+    const s2 = await post("/api/share-grant", {}, H);
+    ok(s2.status === 200 && s2.json.ok === true, "会员分享领取 ok");
+    // status 接口对游客仍开放（用来展示引导文案）
+    const st = await (await fetch("http://localhost:34561/api/checkin/status?userId=x")).json();
+    ok(typeof st.streak === "number", "签到 status 对游客开放");
+  } finally {
+    srv.kill();
+  }
 
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
