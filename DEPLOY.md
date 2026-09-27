@@ -1,52 +1,47 @@
-# Moonlit 上线部署（nginx + HTTPS + 防火墙）
+# Moonlit Production Deploy (nginx + HTTPS + firewall)
 
-> 在阿里云 Workbench 里跑。服务器是 Alibaba Cloud Linux 3（命令按它写的，
-> 不是 Ubuntu 那套 ufw）。
+> Run this in the Alibaba Cloud Workbench terminal. The server runs
+> Alibaba Cloud Linux 3 (commands below are for it, not the Ubuntu `ufw` set).
 
-## 0. 先更新代码
+## 0. Update the code
 
 ```bash
 cd ~/tarot-site
-# 下载新的部署包（Sunny 会给你链接），解压覆盖
-unzip -o tarot-site-security.zip
-npm install          # 新增 helmet（纯 JS，无编译）
+# download the new deploy zip (ask Sunny for the link), overwrite:
+unzip -o <new-package>.zip
+npm install
 pm2 restart moonlit
 ```
 
-⚠️ **注意**：这次修了一个老 bug——以前 `.env` 里 `ADMIN_TOKEN` 等变量
-因为加载顺序问题根本没生效，一直用的是默认 token。
-更新后你 `.env` 里设的 ADMIN_TOKEN **真正生效**了，
-以后进 `/admin.html` 必须用你自己设的那个。
-
-## 1. 装 nginx（反向代理）
+## 1. Install nginx (reverse proxy)
 
 ```bash
 sudo dnf install -y nginx
 sudo systemctl enable --now nginx
 ```
 
-`/etc/nginx/conf.d/moonlit.conf`：
+`/etc/nginx/conf.d/moonlit.conf`:
 
 ```nginx
-# HTTP 自动跳 HTTPS
+# HTTP -> HTTPS redirect
 server {
     listen 80;
-    server_name 你的域名.com;
+    server_name your-domain.com;
     return 301 https://$host$request_uri;
 }
 
 server {
     listen 443 ssl;
-    server_name 你的域名.com;
+    server_name your-domain.com;
 
-    ssl_certificate     /etc/letsencrypt/live/你的域名.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/你的域名.com/privkey.pem;
+    ssl_certificate     /etc/letsencrypt/live/your-domain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/your-domain.com/privkey.pem;
 
-    # 安全头（应用层 helmet 已加了一部分，这里补全）
+    # security headers (helmet already adds some at the app layer)
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 
-    # 上传/请求体上限，和后端 200kb 保持一致
+    # request body cap, matches the backend's 200kb limit
     client_max_body_size 200k;
 
     location / {
@@ -64,21 +59,23 @@ server {
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-> 后端已设 `trust proxy: loopback`，只信任本机 nginx 传来的
-> `X-Forwarded-For`，限流拿到的 IP 是访客真实 IP。
+> The backend sets `trust proxy: loopback`, so it only trusts
+> `X-Forwarded-For` from the local nginx — rate limiting sees the
+> visitor's real IP.
 
-## 2. HTTPS（免费证书）
+## 2. HTTPS (free certificate)
 
 ```bash
 sudo dnf install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d 你的域名.com
-# 按提示输邮箱，一路回车/yes。certbot 会自动改 nginx 配置并续期。
+sudo certbot --nginx -d your-domain.com
+# enter your email when asked, accept the prompts;
+# certbot rewrites the nginx config and auto-renews.
 ```
 
-## 3. 防火墙：只开 22 / 80 / 443
+## 3. Firewall: only 22 / 80 / 443
 
 ```bash
-# firewalld（系统层面）
+# firewalld (OS level)
 sudo systemctl enable --now firewalld
 sudo firewall-cmd --permanent --add-service=ssh
 sudo firewall-cmd --permanent --add-service=http
@@ -86,38 +83,49 @@ sudo firewall-cmd --permanent --add-service=https
 sudo firewall-cmd --reload
 ```
 
-另外去**阿里云控制台 → ECS → 安全组**，入方向只保留：
-`22（SSH）`、`80（HTTP）`、`443（HTTPS）`。
-Node 的 3000 端口**不要**放行到公网（只走本机 nginx）。
+Also in the **Alibaba Cloud console → ECS → Security Groups**, inbound rules
+should only allow `22 (SSH)`, `80 (HTTP)`, `443 (HTTPS)`.
+Do NOT expose Node's port 3000 to the public — it only talks to local nginx.
 
-## 4. PM2 生产模式
+## 4. PM2 production mode
 
 ```bash
-# ecosystem.config.js（已在项目根目录，可选）
-pm2 start ecosystem.config.js   # 或：NODE_ENV=production pm2 start backend/server.js --name moonlit
+# ecosystem.config.js is already in the project root (optional)
+pm2 start ecosystem.config.js   # or: NODE_ENV=production pm2 start backend/server.js --name moonlit
 pm2 save
-pm2 startup   # 按它输出的那行命令再跑一次，开机自启
+pm2 startup   # run the command it prints once, for reboot persistence
 ```
 
-## 5. 邮箱验证码（QQ 邮箱 SMTP，免费）
+## 5. Email verification (QQ SMTP, free)
 
-注册强制验证邮箱，验证码走你的 QQ 邮箱发出。先在 QQ 邮箱网页版开 SMTP：
+Registration requires email verification, sent from your QQ mailbox.
+Enable SMTP in QQ Mail first:
 
-1. 登录 QQ 邮箱 → 左上角**设置** → **账号** → 找到 **POP3/IMAP/SMTP/Exchange/CardDAV 服务**
-2. 开启 **SMTP 服务**（按提示用手机验证），然后点**生成授权码** → 复制那串授权码
-3. 服务器上编辑 `.env`，加上：
+1. Log in to QQ Mail web → **Settings** (设置) → **Accounts** (账号) →
+   find **POP3/IMAP/SMTP/Exchange/CardDAV** → enable **SMTP**
+   (phone verification required) → **Generate authorization code** → copy it
+2. On the server, edit `.env`:
    ```
-   SMTP_USER=你的QQ号@qq.com
-   SMTP_PASS=刚才复制的授权码（不是 QQ 密码！）
+   SMTP_USER=your-qq-number@qq.com
+   SMTP_PASS=the-authorization-code-you-just-copied (NOT your QQ password!)
    ```
-   然后 `npm install`（新依赖 nodemailer）+ `pm2 restart moonlit`
+   then `npm install` (new dependency: nodemailer) + `pm2 restart moonlit`
 
-说明：QQ 邮箱每天免费发几百封，验证码量完全够用；不配也能跑（验证码打到服务器日志里，方便测试），但上线前务必配好。
+QQ Mail's free tier sends hundreds of emails a day — plenty for
+verification codes. Without these two keys the site still runs
+(codes go to the server console in dev mode, handy for testing),
+but configure them before launch.
 
-## 6. 上线前检查单
+## 6. Pre-launch checklist
 
-- [ ] `.env` 里 `ADMIN_TOKEN` 已设（没设则后台接口全部 503）
-- [ ] `PAYMENTS_ENABLED=false`（收费前保持关闭）
-- [ ] 启用支付前：用一笔真实小额订单验证 XorPay 回调验签能通过
-- [ ] `curl -I https://你的域名.com` 看不到 `x-powered-by`
-- [ ] 无痕窗口走一遍：占卜 → 注册 → 退出 → 登录，记录都在
+- [ ] `ADMIN_TOKEN` is set in `.env` (without it, all admin APIs return 503)
+- [ ] `PAYMENTS_ENABLED=false` (keep charging off until ready)
+- [ ] Before enabling payments: verify a real small-amount XorPay order
+      passes callback signature verification
+- [ ] `curl -I https://your-domain.com` shows no `x-powered-by` header
+- [ ] Walk through in an incognito window: reading → register →
+      logout → login; history is intact
+
+---
+
+中文版：[DEPLOY.zh-CN.md](DEPLOY.zh-CN.md)
