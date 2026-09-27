@@ -99,7 +99,7 @@ function numIn(v, min, max) {
 /* Validate birth data shared by bazi / ziwei / western astrology.
    Frontend sends gender as 'male'|'female' (mapped from 男/女).
    Returns { ok, clean } where clean fits taibu-core's BirthTimeInput. */
-function validateBirthInput(body, { needLocation = false } = {}) {
+function validateBirthInput(body) {
   const b = body || {};
   const gender = b.gender === "female" ? "female" : b.gender === "male" ? "male" : null;
   if (!gender) return { ok: false, error: "请选择性别。" };
@@ -133,19 +133,6 @@ function validateBirthInput(body, { needLocation = false } = {}) {
     calendarType, isLeapMonth, question: q,
   };
 
-  if (needLocation) {
-    const lat = Number(b.latitude);
-    const lon = Number(b.longitude);
-    if (!Number.isFinite(lat) || lat < -90 || lat > 90 ||
-        !Number.isFinite(lon) || lon < -180 || lon > 180) {
-      return { ok: false, error: "请选择出生城市（经纬度）。" };
-    }
-    clean.latitude = lat;
-    clean.longitude = lon;
-    if (typeof b.birthPlace === "string" && b.birthPlace.trim()) {
-      clean.birthPlace = b.birthPlace.trim().slice(0, 40);
-    }
-  }
   return { ok: true, clean };
 }
 

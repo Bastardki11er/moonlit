@@ -113,16 +113,15 @@ function ok(cond, name) {
   userdb.saveBirthProfile(m2u.id, {
     gender: "female", birthYear: 1998, birthMonth: 5, birthDay: 20,
     birthHour: 14, birthMinute: 30, calendarType: "solar", isLeapMonth: false,
-    latitude: 31.23, longitude: 121.47, birthPlace: "上海",
   });
   const prof = userdb.getBirthProfile(m2u.id);
-  ok(prof && prof.birth_year === 1998 && prof.birth_place === "上海", "保存后能读出");
+  ok(prof && prof.birth_year === 1998 && prof.birth_minute === 30, "保存后能读出");
   userdb.saveBirthProfile(m2u.id, {
     gender: "male", birthYear: 2000, birthMonth: 1, birthDay: 1,
     birthHour: 0, calendarType: "lunar", isLeapMonth: true,
   });
   const prof2 = userdb.getBirthProfile(m2u.id);
-  ok(prof2.birth_year === 2000 && prof2.latitude === null && prof2.is_leap_month === 1, "重复保存覆盖旧数据");
+  ok(prof2.birth_year === 2000 && prof2.latitude === undefined && prof2.is_leap_month === 1, "重复保存覆盖旧数据");
 
   console.log("== 历史记录条数（db 层 limit 参数） ==");
   for (let i = 0; i < 5; i++) userdb.saveReading(g2.id, { question: "q" + i, cards: [], readingText: "t" });

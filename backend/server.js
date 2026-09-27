@@ -376,7 +376,7 @@ app.post("/api/profile/birth", infoLimiter, (req, res) => {
   if (!sess) return res.status(401).json({ error: "登录后可保存出生信息。" });
   const kind = (req.body && req.body.kind) || "bazi";
   if (!DIVINATION_KINDS.includes(kind)) return res.status(400).json({ error: "没有这种排盘。" });
-  const v = validateBirthInput(req.body, { needLocation: kind === "astro" });
+  const v = validateBirthInput(req.body);
   if (!v.ok) return res.status(400).json({ error: v.error });
   let user = userdb.getUserForAccount(sess.accountId);
   if (!user) {
@@ -647,8 +647,7 @@ app.post("/api/reading/followup", readingLimiter, async (req, res) => {
 /* ---------- 命理排盘: 八字 / 紫微斗数 / 西方星盘 ----------
    POST /api/divination/:kind  (kind = bazi | ziwei | astro)
    Body: { gender, birthYear, birthMonth, birthDay, birthHour,
-           birthMinute?, calendarType?, isLeapMonth?, question?,
-           latitude?, longitude?, birthPlace? (astro only) }
+           birthMinute?, calendarType?, isLeapMonth?, question? }
    The chart is calculated by OUR code (taibu-core, MIT) from validated
    birth data — the client can never inject prompt text through it.
    Each reading costs 1 quota, same as a tarot reading. */
@@ -659,7 +658,7 @@ app.post("/api/divination/:kind", readingLimiter, async (req, res) => {
     if (!DIVINATION_KINDS.includes(kind)) {
       return res.status(404).json({ error: "没有这种排盘。" });
     }
-    const v = validateBirthInput(req.body, { needLocation: kind === "astro" });
+    const v = validateBirthInput(req.body);
     if (!v.ok) return res.status(400).json({ error: v.error });
     const { question, ...calcInput } = v.clean;
 

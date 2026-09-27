@@ -137,9 +137,6 @@ CREATE TABLE IF NOT EXISTS birth_profiles (
   birth_minute INTEGER,
   calendar_type TEXT NOT NULL DEFAULT 'solar',
   is_leap_month INTEGER NOT NULL DEFAULT 0,
-  latitude     REAL,
-  longitude    REAL,
-  birth_place  TEXT,
   updated_at   TEXT NOT NULL
 );
 `;
@@ -209,11 +206,12 @@ async function init() {
     birth_minute INTEGER,
     calendar_type TEXT NOT NULL DEFAULT 'solar',
     is_leap_month INTEGER NOT NULL DEFAULT 0,
-    latitude     REAL,
-    longitude    REAL,
-    birth_place  TEXT,
     updated_at   TEXT NOT NULL
   )`);
+  // 2026-09-26: 经纬度/出生地字段下线 — 从老表里删掉这些列（失败也不影响启动）。
+  for (const col of ["latitude", "longitude", "birth_place"]) {
+    try { db.exec(`ALTER TABLE birth_profiles DROP COLUMN ${col}`); } catch (e) { /* already gone */ }
+  }
   persist();
   return api;
 }
@@ -426,20 +424,17 @@ function saveBirthProfile(userId, p) {
   run(
     `INSERT INTO birth_profiles
        (user_id, gender, birth_year, birth_month, birth_day, birth_hour, birth_minute,
-        calendar_type, is_leap_month, latitude, longitude, birth_place, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        calendar_type, is_leap_month, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(user_id) DO UPDATE SET
        gender = excluded.gender, birth_year = excluded.birth_year,
        birth_month = excluded.birth_month, birth_day = excluded.birth_day,
        birth_hour = excluded.birth_hour, birth_minute = excluded.birth_minute,
        calendar_type = excluded.calendar_type, is_leap_month = excluded.is_leap_month,
-       latitude = excluded.latitude, longitude = excluded.longitude,
-       birth_place = excluded.birth_place, updated_at = excluded.updated_at`,
+       updated_at = excluded.updated_at`,
     [userId, p.gender, p.birthYear, p.birthMonth, p.birthDay, p.birthHour,
      p.birthMinute == null ? null : p.birthMinute, p.calendarType,
-     p.isLeapMonth ? 1 : 0,
-     p.latitude == null ? null : p.latitude, p.longitude == null ? null : p.longitude,
-     p.birthPlace || null, now()]
+     p.isLeapMonth ? 1 : 0, now()]
   );
   persist();
 }
