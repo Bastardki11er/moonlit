@@ -19,7 +19,7 @@
   .token-row input{flex:1;background:rgba(20,16,40,.8);border:1px solid rgba(212,175,55,.4);
     border-radius:10px;color:#fff;padding:10px 12px;font-size:14px}
   .token-wrap{position:relative;flex:1;display:flex}
-  .token-wrap input{width:100%;padding-right:44px}
+  .token-wrap input{width:100%;padding-right:44px;caret-color:#ffd700;font-size:16px}
   .toggle-pw{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;
     font-size:18px;cursor:pointer;opacity:.7;padding:4px}
   .toggle-pw:hover{opacity:1}
@@ -69,8 +69,18 @@ const updatePwCount = () => {
   pwCount.hidden = n === 0;
   pwCount.textContent = n === 0 ? "" : `已输入 ${n} 位`;
 };
-tokenInput.addEventListener("input", updatePwCount);
-tokenInput.addEventListener("paste", () => setTimeout(updatePwCount, 0));
+// 像手机密码框一样：每敲一个字符，明文显示约 1 秒再变回 •，让你看到自己敲没敲上
+let pwPeekTimer = null;
+const peekLastInput = () => {
+  if (tokenInput.type !== "password") return; // 已手动切换为显示模式就不动
+  tokenInput.type = "text";
+  clearTimeout(pwPeekTimer);
+  pwPeekTimer = setTimeout(() => {
+    if ($("toggle-pw").textContent === "👁") tokenInput.type = "password";
+  }, 1000);
+};
+tokenInput.addEventListener("input", () => { updatePwCount(); peekLastInput(); });
+tokenInput.addEventListener("paste", () => setTimeout(() => { updatePwCount(); peekLastInput(); }, 0));
 $("toggle-pw").addEventListener("click", () => {
   const show = tokenInput.type === "password";
   tokenInput.type = show ? "text" : "password";
