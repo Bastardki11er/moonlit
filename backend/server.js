@@ -69,7 +69,7 @@ const infoLimiter = rateLimit({ windowMs: 60 * 1000, max: 60,
   message: "请求太频繁了，稍后再试。" });
 const shareLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 20,
   message: "分享太频繁了，休息一下再来吧。" });
-// 验证码发送：5 次/分钟/IP + 同一邮箱 60 秒冷却（防短信轰炸式刷邮件）
+// verification codes: 5/min/IP + 60s cooldown per email (stops email-bombing)
 const codeLimiter = rateLimit({ windowMs: 60 * 1000, max: 5,
   message: "发送太频繁了，稍后再试。" });
 const CODE_RESEND_COOLDOWN_MS = 60 * 1000;
@@ -85,7 +85,7 @@ function checkAdmin(req, res, next) {
 }
 
 /* ---------- XorPay (WeChat Pay / Alipay for individuals) ----------
-   Sign up at https://xorpay.com, finish 实名审核, get your aid + secret.
+   Sign up at https://xorpay.com, finish real-name verification, get your aid + secret.
    Create a payment: POST https://xorpay.com/api/pay/{aid}
      ?name=...&pay_type=wechat|alipay&price=...&order_id=...&notify_url=...&sign=...
    where sign = md5(name + pay_type + price + order_id + notify_url + secret) */
@@ -177,10 +177,10 @@ app.use(express.static(path.join(__dirname, "..", "frontend")));
    Each visitor (by user id, stored in their browser) gets a few
    free readings per day. After that, the API says "payment required".
    Usage is tracked in the database (daily_usage table). */
-/* 每日免费额度：游客 3 次，注册用户 5 次（注册是"更爽"不是"卡脖子"）。
-   只有 PAYMENTS_ENABLED=true 时才真正扣额度；现在全免费阶段大家无限玩。 */
-const FREE_PER_DAY = parseInt(process.env.FREE_READINGS_PER_DAY || "3", 10); // 游客
-const FREE_PER_DAY_MEMBER = parseInt(process.env.FREE_READINGS_PER_DAY_MEMBER || "5", 10); // 注册用户
+/* Daily free quota: 3 for guests, 5 for members (registering is "nicer", not a paywall).
+   Quotas are only actually enforced when PAYMENTS_ENABLED=true; while everything is free, usage is unlimited. */
+const FREE_PER_DAY = parseInt(process.env.FREE_READINGS_PER_DAY || "3", 10); // guests
+const FREE_PER_DAY_MEMBER = parseInt(process.env.FREE_READINGS_PER_DAY_MEMBER || "5", 10); // members
 function dailyQuota(user) {
   return userdb.isRegistered(user.id) ? FREE_PER_DAY_MEMBER : FREE_PER_DAY;
 }
@@ -216,7 +216,7 @@ function resolveUser(req) {
 app.post("/api/user/init", initLimiter, (req, res) => {
   const user = resolveUser(req);
   // Referral: ?ref=<userId> — newcomer + referrer each earn bonus readings
-  // （推荐人是注册用户时双方各 +2，否则 +1）。
+  // (both sides get +2 when the referrer is a member, otherwise +1).
   let referralApplied = false, referralReward = 0;
   try {
     const ref = req.body && typeof req.body.ref === "string" ? req.body.ref.trim() : "";
@@ -237,15 +237,15 @@ app.post("/api/user/init", initLimiter, (req, res) => {
     referralApplied,
     referralReward,
     freeLeft: userdb.freeLeftToday(user.id, dailyQuota(user)),
-    // 注册用户今天是否还有"首次追问免费"（付费开启后才有意义；全免费阶段追问本来就不扣费）
+    // whether the member still has their free first follow-up today (only matters once payments are on; follow-ups are free while everything is)
     followupFree: userdb.isRegistered(user.id) && userdb.followupsToday(user.id) === 0,
   });
 });
 
-/* ---------- reading history for "我的记录" ---------- */
+/* ---------- reading history for "my records" ---------- */
 app.get("/api/user/readings", (req, res) => {
   const user = userdb.getOrCreateUser(req.query.userId);
-  // 注册用户历史记录 100 条云同步，游客 30 条。
+  // members get 100 history entries synced to the cloud; guests get 30.
   const limit = userdb.isRegistered(user.id) ? 100 : 30;
   res.json({ readings: userdb.getReadings(user.id, limit), isMember: userdb.isRegistered(user.id) });
 });
@@ -256,7 +256,7 @@ app.get("/api/user/reading/:id", (req, res) => {
   res.json({ reading: r });
 });
 
-/* 命理排盘种类（出生信息记忆接口也要用，所以定义提前） */
+/* chart reading types (also used by the birth-profile endpoints, so defined early) */
 const DIVINATION_KINDS = ["bazi", "ziwei", "astro"];
 const DIVINATION_NAMES = { bazi: "八字命盘", ziwei: "紫微斗数", astro: "西方星盘" };
 
@@ -269,10 +269,10 @@ const DIVINATION_NAMES = { bazi: "八字命盘", ziwei: "紫微斗数", astro: "
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/* ---------- 邮箱验证码 ----------
-   POST /api/auth/send-code { email, purpose } → 发送 6 位验证码。
-   purpose 目前只支持 "register"（注册），"reset"（找回密码）以后接。
-   未配置 SMTP 时进入 dev 模式：验证码打到服务器控制台，不真发邮件。 */
+/* ---------- email verification codes ----------
+   POST /api/auth/send-code { email, purpose } → sends a 6-digit code.
+   purpose currently only supports "register"; "reset" (password reset) comes later.
+   Without SMTP configured it runs in dev mode: codes go to the server console, no real emails. */
 app.post("/api/auth/send-code", codeLimiter, async (req, res) => {
   const { email, purpose } = req.body || {};
   const p = purpose || "register";
@@ -286,7 +286,7 @@ app.post("/api/auth/send-code", codeLimiter, async (req, res) => {
   if (userdb.getAccountByEmail(mail)) {
     return res.status(400).json({ error: "这个邮箱已经注册过了，直接登录吧。" });
   }
-  // 同一邮箱 60 秒内只能发一次
+  // one code per email per 60 seconds
   const last = userdb.emailCodeSentAt(mail, p);
   if (last && Date.now() - new Date(last).getTime() < CODE_RESEND_COOLDOWN_MS) {
     return res.status(429).json({ error: "验证码刚发过，60 秒后再试。" });
@@ -309,7 +309,7 @@ app.post("/api/auth/register", authLimiter, (req, res) => {
   if (!password || String(password).length < 6) {
     return res.status(400).json({ error: "密码至少 6 位。" });
   }
-  // 验证码必填：验过即作废，一次性使用
+  // code is required: voided after verification, one-time use
   const v = userdb.verifyEmailCode(String(email), code, "register");
   if (!v.ok) {
     return res.status(400).json({ error: v.error });
@@ -361,9 +361,9 @@ app.get("/api/auth/me", (req, res) => {
   res.json({ email: sess.email, userId: user.id });
 });
 
-/* ---------- 出生信息记忆（注册用户专享） ----------
-   保存八字/紫微/星盘的出生信息，下次一键填入。只认登录态（Bearer token），
-   游客调这个接口会 401。字段走 validateBirthInput 校验，和排盘同一套规则。 */
+/* ---------- saved birth profiles (members only) ----------
+   Saves the birth info used for bazi/ziwei/astro readings so it can be re-filled in one tap. Login required (Bearer token), 
+   guests hitting this endpoint get 401. Fields are validated with validateBirthInput — same rules as the readings. */
 app.get("/api/profile/birth", (req, res) => {
   const sess = userdb.getSessionAccount(getBearerToken(req));
   if (!sess) return res.status(401).json({ error: "登录后可使用出生信息记忆。" });
@@ -406,11 +406,11 @@ app.get("/api/admin/recent", adminLimiter, adminGuard.check, checkAdmin, (req, r
    shape you want the answer in. Tune this text and watch how
    the readings change — that tuning IS the business skill.
    ============================================================ */
-/* ---------- topic-specialized spreads （主题牌阵） ----------
-   Picking 感情 vs 事业 vs 财运 must produce a genuinely different reading,
+/* ---------- topic-specialized spreads ----------
+   Picking love vs career vs money must produce a genuinely different reading,
    not the same generic text with a keyword swapped in. Each topic spread
    gives the AI a specialist role + an interpretation lens; the follow-up
-   prompt reuses the same lens so追问 stays in-topic. Inspired by the
+   prompt reuses the same lens so follow-ups stay in-topic. Inspired by the
    vincitarot skill pattern (topic spreads with per-focus meanings). */
 const TOPIC_LENS = {
   "💕 感情牌阵": {
@@ -501,7 +501,7 @@ async function askAI(prompt) {
   const provider = (process.env.AI_PROVIDER || "doubao").toLowerCase();
 
   /* Doubao (ByteDance) via Volcengine — OpenAI-compatible API.
-     Get a key: https://console.volcengine.com → 开通豆包大模型 → 方舟 → API Key 管理.
+     Get a key: https://console.volcengine.com → enable the Doubao model → Ark → API Key management.
      Model IDs look like doubao-seed-1-6-250615
      (or doubao-seed-1-6-flash-250615 for faster + cheaper). */
   if (provider === "doubao") {
@@ -589,7 +589,7 @@ app.post("/api/reading", readingLimiter, async (req, res) => {
       if (userdb.usePaidReadings(user.id, cost)) {
         usedPaidPack = true; // they bought readings — let them in
       } else if (userdb.useBonusReadings(user.id, cost)) {
-        usedBonus = true; // 分享赚来的免费次数
+        usedBonus = true; // free readings earned via sharing
       } else if (userdb.freeLeftToday(user.id, dailyQuota(user)) < cost) {
         // No paid readings and no free readings left -> paywall
         return res.status(402).json({
@@ -639,7 +639,7 @@ app.post("/api/reading/followup", readingLimiter, async (req, res) => {
     }
 
     // Same quota rules as a reading (skipped while PAYMENTS_ENABLED=false).
-    // 注册用户每天首次追问免费（追问 prompt 短、成本低，当会员小福利）。
+    // members' first follow-up each day is free (follow-up prompts are short and cheap — a small member perk).
     let usedPaidPack = false, usedBonus = false, usedFreeFollowup = false;
     if (PAYMENTS_ENABLED) {
       if (userdb.isRegistered(user.id) && userdb.followupsToday(user.id) === 0) {
@@ -647,7 +647,7 @@ app.post("/api/reading/followup", readingLimiter, async (req, res) => {
       } else if (userdb.usePaidReadings(user.id, 1)) {
         usedPaidPack = true;
       } else if (userdb.useBonusReadings(user.id, 1)) {
-        usedBonus = true; // 分享赚来的免费次数
+        usedBonus = true; // free readings earned via sharing
       } else if (userdb.freeLeftToday(user.id, dailyQuota(user)) < 1) {
         return res.status(402).json({
           error: `Free readings used up for today. Unlock ${READINGS_PER_PACK} more for ¥${PRICE_CNY} ✨`,
@@ -674,7 +674,7 @@ app.post("/api/reading/followup", readingLimiter, async (req, res) => {
   }
 });
 
-/* ---------- 命理排盘: 八字 / 紫微斗数 / 西方星盘 ----------
+/* ---------- chart readings: bazi / ziwei / western astrology ----------
    POST /api/divination/:kind  (kind = bazi | ziwei | astro)
    Body: { gender, birthYear, birthMonth, birthDay, birthHour,
            birthMinute?, calendarType?, isLeapMonth?, question? }
@@ -699,7 +699,7 @@ app.post("/api/divination/:kind", readingLimiter, async (req, res) => {
       if (userdb.usePaidReadings(user.id, 1)) {
         usedPaidPack = true;
       } else if (userdb.useBonusReadings(user.id, 1)) {
-        usedBonus = true; // 分享赚来的免费次数
+        usedBonus = true; // free readings earned via sharing
       } else if (userdb.freeLeftToday(user.id, dailyQuota(user)) < 1) {
         return res.status(402).json({
           error: `Free readings used up for today. Unlock ${READINGS_PER_PACK} more for ¥${PRICE_CNY} ✨`,
@@ -743,7 +743,7 @@ app.get("/api/divination/:kind/:id", (req, res) => {
   res.json(d);
 });
 
-/* ---------- 占卜日记 ----------
+/* ---------- divination diary ----------
    Private notes: linked to a tarot/divination reading or standalone.
    All endpoints are scoped to the caller's user id. */
 app.get("/api/journal", (req, res) => {
@@ -782,10 +782,10 @@ app.delete("/api/journal/:id", (req, res) => {
   res.json({ ok: true });
 });
 
-/* ---------- 今日黄历 ----------
-   GET /api/almanac?date=YYYY-MM-DD （默认北京时间今天）
-   免费公开信息：农历、干支、宜忌、冲煞、财神方位、时辰吉凶。
-   数据来自 taibu-core 的传统黄历引擎，按日期缓存。 */
+/* ---------- daily almanac ----------
+   GET /api/almanac?date=YYYY-MM-DD (defaults to today, Beijing time)
+   Free public info: lunar date, ganzhi, do's and don'ts, clashes, wealth-god direction, auspicious hours.
+   Data comes from taibu-core's traditional almanac engine, cached by date. */
 const almanacCache = new Map(); // date -> slim almanac JSON (static per date)
 function beijingToday() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai" }).format(new Date());
@@ -840,10 +840,10 @@ app.get("/api/almanac", infoLimiter, async (req, res) => {
   }
 });
 
-/* ---------- 分享赚免费次数 ----------
-   POST /api/share-grant  →  每天最多 2 次（会员 3 次），每次 +1 bonus_readings。
-   bonus 在付费开启后按 免费→bonus→付费包 的顺序抵扣。
-   领取需要登录：奖励次数是注册用户的福利，游客分享欢迎，但领奖先注册。 */
+/* ---------- earn free readings by sharing ----------
+   POST /api/share-grant → up to 2/day (3 for members), +1 bonus_readings each.
+   Once payments are on, bonus is consumed in this order: free → bonus → paid packs.
+   Claiming requires login: bonus readings are a member perk — guests are welcome to share, but need to register to claim. */
 app.post("/api/share-grant", shareLimiter, (req, res) => {
   try {
     const user = resolveUser(req);
@@ -866,10 +866,10 @@ app.get("/api/share-status", (req, res) => {
   });
 });
 
-/* ---------- 每日签到 ----------
+/* ---------- daily check-in ----------
    POST /api/checkin → { ok, streak, checkedInToday, rewardGranted }
    GET  /api/checkin/status → { streak, checkedInToday }
-   签到需要登录：连续签到是注册用户的回访福利，游客先注册再签到。 */
+   Check-in requires login: streaks are a member retention perk — guests register first, then check in. */
 app.post("/api/checkin", infoLimiter, (req, res) => {
   try {
     const user = resolveUser(req);

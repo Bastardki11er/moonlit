@@ -23,7 +23,7 @@ function isValidUUID(id) {
 }
 
 const MAX_QUESTION = 500;
-const VALID_CARD_COUNTS = [1, 3, 5, 10]; // 10 = 凯尔特十字
+const VALID_CARD_COUNTS = [1, 3, 5, 10]; // 10 = Celtic Cross
 
 /* Validate a POST /api/reading body.
    Returns { ok: true, clean } or { ok: false, error }. */
@@ -97,7 +97,7 @@ function numIn(v, min, max) {
 }
 
 /* Validate birth data shared by bazi / ziwei / western astrology.
-   Frontend sends gender as 'male'|'female' (mapped from 男/女).
+   Frontend sends gender as 'male'|'female' (mapped from the Chinese UI labels).
    Returns { ok, clean } where clean fits taibu-core's BirthTimeInput. */
 function validateBirthInput(body) {
   const b = body || {};

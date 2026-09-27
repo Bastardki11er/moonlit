@@ -2,7 +2,7 @@
 # ============================================================
 # Moonlit — download the open ziwei sample dataset (optional)
 # ------------------------------------------------------------
-# Dataset: Renhuai123/ziwei-doushu "紫微斗数开源样本数据集 v3.0"
+# Dataset: Renhuai123/ziwei-doushu "Ziwei Doushu open sample dataset v3.0"
 # 518,400 charts with interpretations, ~5.5 GB in 3 parts.
 # Free for commercial use — the ONLY requirement is attribution
 # (see THIRD-PARTY-NOTICES.md). Run this on your server (or any

@@ -1,5 +1,5 @@
-/* 会员权益前端冒烟测试：验证新 UI 逻辑不报错、文案正确。
-   跑法：node tools/member-frontend-test.js */
+/* Member perks frontend smoke test: verifies the new UI logic runs without errors and the copy is right.
+   Run: node tools/member-frontend-test.js */
 "use strict";
 const fs = require("fs");
 const path = require("path");
@@ -18,9 +18,9 @@ global.window = window;
 global.document = window.document;
 global.localStorage = window.localStorage;
 global.Event = window.Event;
-// navigator 在 Node 24 是只读 getter，jsdom 的 window.navigator 已可用，不覆盖
+// navigator is a read-only getter in Node 24; jsdom's window.navigator already works, don't override
 
-// fetch stub：按 URL 返回固定数据
+// fetch stub: returns canned data per URL
 const calls = [];
 window.fetch = async (url, opts) => {
   calls.push({ url, opts });
@@ -42,11 +42,11 @@ window.fetch = async (url, opts) => {
 global.fetch = window.fetch;
 
 async function main() {
-  // 先以游客态启动（不设 token，会员标记 false）
+  // start as guest (no token, member flag false)
   try { window.localStorage.removeItem("moonlit_token"); } catch (e) {}
   window.__moonlitMember = false;
 
-  // 按真实顺序加载：用 <script> 标签注入，和浏览器行为一致（全局 const 跨脚本共享）
+  // load in real order: inject via <script> tags, same as browser behavior (global const shared across scripts)
   const load = (f) => {
     const src = fs.readFileSync(path.join(__dirname, "..", "frontend", "js", f), "utf8");
     const s = window.document.createElement("script");
@@ -59,32 +59,32 @@ async function main() {
   load("app.js");
   load("divination.js");
 
-  // DOMContentLoaded 触发 growth/divination 的初始化
+  // DOMContentLoaded triggers growth/divination init
   window.document.dispatchEvent(new window.Event("DOMContentLoaded", { bubbles: true }));
   await new Promise((r) => setTimeout(r, 300));
 
-  console.log("== 游客态：签到/分享引导登录 ==");
+  console.log("== guest mode: check-in/share login prompts ==");
   const cbtn = window.document.getElementById("checkin-btn");
-  ok(!!cbtn && cbtn.textContent.includes("登录后签到"), "游客签到按钮显示'登录后签到': " + (cbtn && cbtn.textContent));
+  ok(!!cbtn && cbtn.textContent.includes("登录后签到"), "guest check-in button shows '登录后签到': " + (cbtn && cbtn.textContent));
   let modalOpened = false;
   const origOpen = window.__openAuthModal;
   window.__openAuthModal = () => { modalOpened = true; };
   cbtn.click();
   await new Promise((r) => setTimeout(r, 150));
   const toastG = window.document.getElementById("moonlit-toast");
-  ok(modalOpened, "游客点签到 → 打开登录弹窗");
-  ok(!!toastG && toastG.textContent.includes("登录后签到"), "游客点签到 → toast 引导: " + (toastG && toastG.textContent));
+  ok(modalOpened, "guest clicks check-in → login modal opens");
+  ok(!!toastG && toastG.textContent.includes("登录后签到"), "guest clicks check-in → toast prompt: " + (toastG && toastG.textContent));
   window.__openAuthModal = origOpen;
   const statusLine = window.document.getElementById("share-status-line");
-  ok(!!statusLine && statusLine.innerHTML.includes("登录后分享赚次数"), "游客分享区引导登录");
+  ok(!!statusLine && statusLine.innerHTML.includes("登录后分享赚次数"), "guest share section prompts login");
   const descGuest = window.document.getElementById("share-earn-desc");
   ok(!!descGuest && descGuest.innerHTML.includes("各得 +1 次") && descGuest.innerHTML.includes("登录后"),
-    "游客分享文案：+1 且提示登录后更多");
+    "guest share copy: +1 and hints at more after login");
   const barGuest = window.document.getElementById("ziwei-memory-bar");
-  ok(!!barGuest && !barGuest.hidden && barGuest.textContent.includes("登录后"), "游客排盘页看到登录提示");
-  ok(!window.document.getElementById("ziwei-remember"), "游客没有记住复选框");
+  ok(!!barGuest && !barGuest.hidden && barGuest.textContent.includes("登录后"), "guest sees login prompt on chart page");
+  ok(!window.document.getElementById("ziwei-remember"), "guest has no remember checkbox");
 
-  console.log("== 切会员态 ==");
+  console.log("== switch to member ==");
   window.localStorage.setItem("moonlit_token", "tok123");
   window.localStorage.setItem("moonlit_uid", "uid-1");
   window.__moonlitMember = true;
@@ -92,61 +92,61 @@ async function main() {
   window.__refreshBirthMemory();
   await new Promise((r) => setTimeout(r, 300));
 
-  console.log("== 出生信息记忆 ==");
+  console.log("== birth profile memory ==");
   const bar = window.document.getElementById("bazi-memory-bar");
-  ok(!!bar && !bar.hidden, "八字表单出现出生记忆条");
-  ok(bar && bar.textContent.includes("一键填入"), "记忆条有一键填入按钮");
+  ok(!!bar && !bar.hidden, "bazi form shows birth-memory bar");
+  ok(bar && bar.textContent.includes("一键填入"), "memory bar has one-tap fill button");
   const fillBtn = window.document.getElementById("bazi-fill-profile");
-  ok(!!fillBtn, "一键填入按钮存在");
+  ok(!!fillBtn, "one-tap fill button exists");
   fillBtn.click();
-  ok(window.document.getElementById("bazi-year").value === "1998", "一键填入：年份");
-  ok(window.document.getElementById("bazi-month").value === "5", "一键填入：月份");
-  ok(window.document.getElementById("bazi-day").value === "20", "一键填入：日期");
-  ok(window.document.getElementById("bazi-hour").value === "14", "一键填入：时辰");
-  ok(window.document.querySelector('input[name="bazi-gender"][value="female"]').checked, "一键填入：性别女");
+  ok(window.document.getElementById("bazi-year").value === "1998", "one-tap fill: year");
+  ok(window.document.getElementById("bazi-month").value === "5", "one-tap fill: month");
+  ok(window.document.getElementById("bazi-day").value === "20", "one-tap fill: day");
+  ok(window.document.getElementById("bazi-hour").value === "14", "one-tap fill: hour");
+  ok(window.document.querySelector('input[name="bazi-gender"][value="female"]').checked, "one-tap fill: gender female");
   const remember = window.document.getElementById("bazi-remember");
-  ok(!!remember && remember.checked, "记住复选框默认勾选");
+  ok(!!remember && remember.checked, "remember checkbox checked by default");
 
-  console.log("== 签到（会员 +2 文案） ==");
+  console.log("== check-in (member +2 copy) ==");
   const dots = window.document.getElementById("checkin-dots");
-  ok(!!dots && dots.title.includes("+2"), "签到进度 title 显示 +2（会员）: " + (dots && dots.title));
+  ok(!!dots && dots.title.includes("+2"), "check-in progress title shows +2 (member): " + (dots && dots.title));
   window.document.getElementById("checkin-btn").click();
   await new Promise((r) => setTimeout(r, 300));
   const toast = window.document.getElementById("moonlit-toast");
-  ok(!!toast && toast.textContent.includes("+2"), "签到成功 toast 显示 +2: " + (toast && toast.textContent));
+  ok(!!toast && toast.textContent.includes("+2"), "check-in success toast shows +2: " + (toast && toast.textContent));
 
-  console.log("== 分享区（会员文案） ==");
+  console.log("== share section (member copy) ==");
   await new Promise((r) => setTimeout(r, 300));
-  ok(!!statusLine && statusLine.innerHTML.includes("每天可领 3 次"), "分享区提示会员每天 3 次");
+  ok(!!statusLine && statusLine.innerHTML.includes("每天可领 3 次"), "share section says members get 3/day");
   const descMember = window.document.getElementById("share-earn-desc");
-  ok(!!descMember && descMember.innerHTML.includes("各得 +2 次"), "会员分享文案：邀请各得 +2");
+  ok(!!descMember && descMember.innerHTML.includes("各得 +2 次"), "member share copy: +2 each per invite");
 
-  console.log("== 受邀 toast（+2） ==");
+  console.log("== referred toast (+2) ==");
   window.__onReferralApplied(2);
   await new Promise((r) => setTimeout(r, 1400));
-  ok(toast.textContent.includes("+2"), "受邀 toast 显示 +2: " + toast.textContent);
+  ok(toast.textContent.includes("+2"), "referred toast shows +2: " + toast.textContent);
 
-  console.log("== 追问提示（会员首免） ==");
+  console.log("== follow-up hint (member first-free) ==");
   window.__moonlitMember = true;
   window.__followupFree = true;
   window.paintFollowupHint();
   const fuh = window.document.getElementById("followup-hint");
-  ok(!!fuh && fuh.textContent.includes("首次追问免费"), "会员首免时追问提示显示免费: " + (fuh && fuh.textContent));
+  ok(!!fuh && fuh.textContent.includes("首次追问免费"), "follow-up hint shows free for member first-free: " + (fuh && fuh.textContent));
   window.__followupFree = false;
   window.paintFollowupHint();
-  ok(fuh.textContent.includes("消耗 1 次"), "用过首免后提示切回普通");
+  ok(fuh.textContent.includes("消耗 1 次"), "hint reverts to normal after first-free used");
   window.__moonlitMember = false;
   window.__followupFree = true;
   window.paintFollowupHint();
-  ok(fuh.textContent.includes("消耗 1 次"), "游客即使 followupFree 也显示普通（字段只对会员为 true）");
+  ok(fuh.textContent.includes("消耗 1 次"), "guests still see the normal hint even when followupFree (field is only true for members)");
 
-  console.log("== 弹窗权益 HTML ==");
+  console.log("== modal perks HTML ==");
   const loggedView = window.document.getElementById("auth-logged-view");
-  ok(!!loggedView && loggedView.innerHTML.includes("会员权益"), "已登录视图有会员权益区");
-  ok(loggedView.innerHTML.includes("每天首次追问免费"), "权益含追问免费");
-  ok(loggedView.innerHTML.includes("100 条"), "权益含 100 条历史");
+  ok(!!loggedView && loggedView.innerHTML.includes("会员权益"), "logged-in view has member perks section");
+  ok(loggedView.innerHTML.includes("每天首次追问免费"), "perks include free follow-ups");
+  ok(loggedView.innerHTML.includes("100 条"), "perks include 100-entry history");
   const formView = window.document.getElementById("auth-form-view");
-  ok(formView.innerHTML.includes("会员权益"), "登录表单有注册 teaser");
+  ok(formView.innerHTML.includes("会员权益"), "login form has signup teaser");
 
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);

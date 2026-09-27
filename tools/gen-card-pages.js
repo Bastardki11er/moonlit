@@ -252,7 +252,7 @@ function buildSitemap(ids) {
       `    <changefreq>monthly</changefreq>\n    <priority>0.8</priority>\n  </url>`),
   ].join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>\n` +
-    `<!-- 买了域名后，把下面所有的 ${BASE_URL} 换成你的域名，然后重新跑 node tools/gen-card-pages.js -->\n` +
+    `<!-- once you have a domain, replace every ${BASE_URL} below with your domain, then re-run node tools/gen-card-pages.js -->\n` +
     `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`;
 }
 function buildRobots() {

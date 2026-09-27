@@ -1,5 +1,5 @@
-/* 主题牌阵前端冒烟测试：按钮/牌位/发给后端的 spread 名。
-   跑法：node tools/spread-ui-test.js */
+/* Topic-spread frontend smoke test: buttons / card positions / spread name sent to backend.
+   Run: node tools/spread-ui-test.js */
 "use strict";
 const fs = require("fs");
 const path = require("path");
@@ -26,9 +26,9 @@ await new Promise((r) => setTimeout(r, 300));
 
 const $ = (id) => window.document.getElementById(id);
 const btns = [...window.document.querySelectorAll(".spread-btn")];
-ok(btns.length === 5, "5 个主题牌阵按钮");
-ok(btns.map(b => b.dataset.spread).join(",") === "single,love,career,fortune,celtic", "data-spread 键正确");
-ok([...window.document.querySelectorAll("h2")].some(h => h.textContent.includes("主题牌阵")), "标题为'选择主题牌阵'");
+ok(btns.length === 5, "5 topic-spread buttons");
+ok(btns.map(b => b.dataset.spread).join(",") === "single,love,career,fortune,celtic", "data-spread keys correct");
+ok([...window.document.querySelectorAll("h2")].some(h => h.textContent.includes("主题牌阵")), "heading is the topic-spread picker");
 
 const byKey = (k) => btns.find(b => b.dataset.spread === k);
 const drawAll = (n) => { for (let i = 0; i < n; i++) $("deck").click(); };
@@ -43,16 +43,16 @@ const expectations = {
 for (const [key, exp] of Object.entries(expectations)) {
   $("question").value = "测试问题";
   byKey(key).click();
-  ok($("draw-count").textContent === exp.count, `${key} 显示 ${exp.count}`);
+  ok($("draw-count").textContent === exp.count, `${key} shows ${exp.count}`);
   drawAll(exp.n);
   await new Promise((r) => setTimeout(r, 100));
   const got = window.eval("state.drawn.map(c => c.position).join('|')");
-  if (exp.positions) ok(got === exp.positions, `${key} 牌位正确`);
-  else ok(window.eval("state.drawn.length") === exp.n, `${key} 抽了 ${exp.n} 张`);
+  if (exp.positions) ok(got === exp.positions, `${key} positions correct`);
+  else ok(window.eval("state.drawn.length") === exp.n, `${key} drew ${exp.n} cards`);
   reset();
 }
 
-// 发给后端的 spread 名应为带 emoji 的中文名
+// the spread name sent to backend should be the emoji-prefixed Chinese name
 let sentBody = null;
 window.fetch = async (url, opts) => {
   if (String(url).includes("/api/reading")) sentBody = JSON.parse(opts.body);
@@ -61,11 +61,11 @@ window.fetch = async (url, opts) => {
 $("question").value = "他还爱我吗？";
 byKey("love").click();
 drawAll(5);
-await new Promise((r) => setTimeout(r, 1100)); // 等 showReadingStep
+await new Promise((r) => setTimeout(r, 1100)); // wait for showReadingStep
 $("get-reading").click();
 await new Promise((r) => setTimeout(r, 500));
-ok(sentBody && sentBody.spread === "💕 感情牌阵", "发给后端的 spread 名正确: " + (sentBody && sentBody.spread));
-ok(sentBody && sentBody.cards.length === 5 && sentBody.cards[0].position === "你的状态", "cards 带主题牌位");
+ok(sentBody && sentBody.spread === "💕 感情牌阵", "spread name sent to backend correct: " + (sentBody && sentBody.spread));
+ok(sentBody && sentBody.cards.length === 5 && sentBody.cards[0].position === "你的状态", "cards carry topic positions");
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

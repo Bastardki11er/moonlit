@@ -119,6 +119,3 @@ to the console instead.
 - Click through in an incognito window: reading → register → logout →
   login, history intact
 
----
-
-中文版：[DEPLOY.zh-CN.md](DEPLOY.zh-CN.md)

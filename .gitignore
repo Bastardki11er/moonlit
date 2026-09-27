@@ -6,9 +6,9 @@ node_modules/
 *.db-shm
 *.db.bak
 
-# Admin 面板不进公开仓库（本地/服务器保留）
+# Admin panel stays out of the public repo (kept locally/on the server)
 frontend/admin.html
 tools/admin-test.js
 
-# 推广内容包不进仓库（本地保留）
+# Promo content pack stays out of the repo (kept locally)
 content-pack/

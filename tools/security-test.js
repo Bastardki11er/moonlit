@@ -27,7 +27,7 @@ async function req(method, p, { body, headers } = {}) {
   return { status: res.status, json, headers: res.headers };
 }
 
-// 注册带验证码完整流程：发码 → 从本地 DB 读码（测试与服务器同机）→ 注册
+// full register-with-code flow: send code → read it from the local DB (test runs on the same machine as the server) → register
 async function readCodeFromDb(email) {
   const initSqlJs = require("sql.js");
   const SQL = await initSqlJs();
@@ -75,7 +75,7 @@ async function registerMember(email) {
   console.log("— growth endpoints (almanac / share / referral / checkin)");
   // almanac: valid date
   r = await req("GET", "/api/almanac?date=2026-09-26");
-  ok("almanac valid date -> 200 with 宜忌",
+  ok("almanac valid date -> 200 with suitability data",
     r.status === 200 && Array.isArray(r.json?.suitable) && Array.isArray(r.json?.avoid),
     `got ${r.status}`);
   // almanac: bad inputs
@@ -83,7 +83,7 @@ async function registerMember(email) {
   ok("almanac bad date -> 400", r.status === 400, `got ${r.status}`);
   r = await req("GET", "/api/almanac?date=2019-05-05");
   ok("almanac out-of-range date -> 400", r.status === 400, `got ${r.status}`);
-  // share grant: 游客 401（需登录），会员 3 次 ok、第 4 次 cap
+  // share grant: guest → 401 (login needed); member → 3 ok, 4th capped
   const mk = await req("POST", "/api/user/init", { body: {} });
   const tu = mk.json.userId;
   r = await req("POST", "/api/share-grant", { body: { userId: tu } });
@@ -120,7 +120,7 @@ async function registerMember(email) {
   ok("self-referral rejected", selfRef.json?.referralApplied !== true, `got ${JSON.stringify(selfRef.json)?.slice(0, 60)}`);
   const dblRef = await req("POST", "/api/user/init", { body: { userId: newMk.json.userId, ref: referrer } });
   ok("second referral for same user rejected", dblRef.json?.referralApplied !== true);
-  // checkin: 游客 401（需登录），会员 first ok、duplicate 不计、status 正常
+  // checkin: guest → 401 (login needed); member → first ok, duplicate ignored, status fine
   r = await req("POST", "/api/checkin", { body: { userId: tu } });
   ok("checkin guest -> 401 needLogin", r.status === 401 && r.json?.needLogin === true,
     `got ${r.status} ${JSON.stringify(r.json)?.slice(0, 60)}`);

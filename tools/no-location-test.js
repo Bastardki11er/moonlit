@@ -1,5 +1,5 @@
-/* 去经纬度专项测试：确认站内不再收集/使用经纬度，星盘无上升点时照常渲染。
-   跑法：node tools/no-location-test.js */
+/* No-location test: confirms the site no longer collects/uses lat-lon, and the astro wheel still renders without an ascendant.
+   Run: node tools/no-location-test.js */
 "use strict";
 const fs = require("fs");
 const { JSDOM } = require("jsdom");
@@ -10,17 +10,17 @@ function ok(cond, name) {
   else { fail++; console.log("  ✗ FAIL: " + name); }
 }
 
-// --- 源码层面：无经纬度残留 ---
+// --- source level: no lat-lon remnants ---
 const fe = fs.readFileSync("frontend/js/divination.js", "utf8");
-ok(!/PROVINCES|provinceOptions|cityOptions|wireLocationCascade/.test(fe), "前端无城市坐标表/级联逻辑");
-ok(!/body\.latitude|body\.longitude|body\.birthPlace/.test(fe), "前端不再提交经纬度/出生地");
+ok(!/PROVINCES|provinceOptions|cityOptions|wireLocationCascade/.test(fe), "frontend has no city coordinate table/cascade logic");
+ok(!/body\.latitude|body\.longitude|body\.birthPlace/.test(fe), "frontend no longer submits lat-lon/birthplace");
 const be = ["backend/validate.js", "backend/server.js", "backend/db.js"]
   .map((f) => fs.readFileSync(f, "utf8")).join("\n");
-ok(!/needLocation/.test(be), "后端无 needLocation 校验分支");
+ok(!/needLocation/.test(be), "backend has no needLocation validation branch");
 const stripComments = (s) => s.replace(/\/\/.*$/gm, "");
-ok(!/经纬度/.test(stripComments(fe + be + fs.readFileSync("frontend/index.html", "utf8"))), "无经纬度文案（注释除外）");
+ok(!/经纬度/.test(stripComments(fe + be + fs.readFileSync("frontend/index.html", "utf8"))), "no lat-lon copy (except in comments)");
 
-// --- 行为层面：jsdom 跑 astro 表单 ---
+// --- behavior level: jsdom runs the astro form ---
 const html = fs.readFileSync("frontend/index.html", "utf8");
 const dom = new JSDOM(html, { url: "https://moontarot.tech/", runScripts: "dangerously" });
 const { window } = dom;
@@ -42,8 +42,8 @@ window.fetch = async (url, opts) => {
 window.eval(fe);
 
 const formHTML = document.getElementById("astro-form-wrap").innerHTML;
-ok(!/出生地|经纬度|province|llwrap/.test(formHTML), "astro 表单无出生地/经纬度输入");
-ok(/不含上升点与宫位/.test(formHTML), "astro 表单有无上升/宫位提示");
+ok(!/出生地|经纬度|province|llwrap/.test(formHTML), "astro form has no birthplace/lat-lon inputs");
+ok(/不含上升点与宫位/.test(formHTML), "astro form has no-ascendant/houses notice");
 
 document.getElementById("astro-year").value = "1995";
 document.getElementById("astro-month").value = "5";
@@ -53,12 +53,12 @@ document.getElementById("astro-hour").value = "14";
 (async () => {
   document.getElementById("astro-form").dispatchEvent(new window.Event("submit", { cancelable: true }));
   await new Promise((r) => setTimeout(r, 300));
-  ok(lastBody && lastBody.latitude === undefined && lastBody.longitude === undefined, "提交 body 无经纬度");
-  ok(lastBody && lastBody.birthYear === 1995, "提交 body 出生日期正常");
+  ok(lastBody && lastBody.latitude === undefined && lastBody.longitude === undefined, "submitted body has no lat-lon");
+  ok(lastBody && lastBody.birthYear === 1995, "submitted body birth date looks right");
   const svg = document.getElementById("astro-wheel").innerHTML;
-  ok(!/星盘数据缺失/.test(svg) && /circle/.test(svg), "无上升点时星盘轮照常绘制");
-  ok(!/ASC/.test(svg), "无上升点时不画 ASC 标记");
-  ok(!!document.getElementById("bazi-form") && !!document.getElementById("ziwei-form"), "八字/紫微表单正常");
+  ok(!/星盘数据缺失/.test(svg) && /circle/.test(svg), "wheel still renders without ascendant");
+  ok(!/ASC/.test(svg), "no ASC marker without ascendant");
+  ok(!!document.getElementById("bazi-form") && !!document.getElementById("ziwei-form"), "bazi/ziwei forms fine");
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 })();

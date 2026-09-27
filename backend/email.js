@@ -1,14 +1,14 @@
-/* 邮箱验证码发件模块。
-默认用 QQ 邮箱 SMTP（smtp.qq.com:465），需要 QQ 邮箱开启 SMTP 并生成授权码：
-QQ 邮箱 → 设置 → 账号 → POP3/IMAP/SMTP → 开启 SMTP 服务 → 生成授权码
-环境变量：
-SMTP_HOST 默认 smtp.qq.com
-SMTP_PORT 默认 465
-SMTP_USER 发件邮箱，如 3317927502@qq.com
-SMTP_PASS QQ 邮箱授权码（不是 QQ 密码！）
-SMTP_FROM 发件人显示名，默认 "月光塔罗 <SMTP_USER>"
-未配置 SMTP_USER/SMTP_PASS 时进入 dev 模式：只在控制台打印验证码，
-方便本地开发和自动化测试，不会真发邮件。生产环境务必配置。 */
+/* Email verification-code sender.
+Uses QQ Mail SMTP (smtp.qq.com:465) by default — enable SMTP in QQ Mail and generate an authorization code:
+QQ Mail → Settings → Accounts → POP3/IMAP/SMTP → enable SMTP → generate code
+Env vars:
+SMTP_HOST, default smtp.qq.com
+SMTP_PORT, default 465
+SMTP_USER, sender address, e.g. 3317927502@qq.com
+SMTP_PASS, QQ Mail authorization code (NOT your QQ password!)
+SMTP_FROM, sender display name, default "月光塔罗 <SMTP_USER>"
+Without SMTP_USER/SMTP_PASS it runs in dev mode: codes are only
+printed to the console. Handy for local dev and automated tests — no real emails go out. Set it up for real in production. */
 
 const SMTP_HOST = process.env.SMTP_HOST || "smtp.qq.com";
 const SMTP_PORT = Number(process.env.SMTP_PORT || 465);
@@ -27,7 +27,7 @@ const nodemailer = require("nodemailer");
 transporter = nodemailer.createTransport({
 host: SMTP_HOST,
 port: SMTP_PORT,
-secure: SMTP_PORT === 465, // 465 走 SSL，587 走 STARTTLS
+secure: SMTP_PORT === 465, // 465 uses SSL, 587 uses STARTTLS
 auth: { user: SMTP_USER, pass: SMTP_PASS},
 });
 }

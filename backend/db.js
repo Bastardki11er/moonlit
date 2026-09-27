@@ -98,8 +98,8 @@ CREATE INDEX IF NOT EXISTS idx_sessions_account ON sessions(account_id);
 CREATE TABLE IF NOT EXISTS email_codes (
   email      TEXT NOT NULL,
   purpose    TEXT NOT NULL DEFAULT 'register', -- register | reset
-  code       TEXT NOT NULL,                     -- 6 位数字
-  attempts   INTEGER NOT NULL DEFAULT 0,        -- 验错次数，超限作废
+  code       TEXT NOT NULL,                     -- 6-digit code
+  attempts   INTEGER NOT NULL DEFAULT 0,        -- wrong attempts; voided past the limit
   expires_at TEXT NOT NULL,
   created_at TEXT NOT NULL,
   PRIMARY KEY (email, purpose)
@@ -208,7 +208,7 @@ async function init() {
     is_leap_month INTEGER NOT NULL DEFAULT 0,
     updated_at   TEXT NOT NULL
   )`);
-  // 2026-09-26: 经纬度/出生地字段下线 — 从老表里删掉这些列（失败也不影响启动）。
+  // 2026-09-26: dropped the lat/lon + birthplace columns from old tables (startup continues even if this fails).
   for (const col of ["latitude", "longitude", "birth_place"]) {
     try { db.exec(`ALTER TABLE birth_profiles DROP COLUMN ${col}`); } catch (e) { /* already gone */ }
   }
@@ -240,10 +240,10 @@ function setNickname(id, nickname) {
   run("UPDATE users SET nickname = ? WHERE id = ?", [String(nickname).slice(0, 40), id]);
 }
 
-/* ---------- member perks （注册用户权益） ----------
-   isRegistered: 该 user 行是否绑定了邮箱账号（users.account_id 非空）。
-   力度说明：游客已经全免费，注册是"更爽"而不是"卡游客脖子"——
-   额度加成温和（AI 调用有真实成本），便利功能给足。 */
+/* ---------- member perks (registered-user benefits) ----------
+   isRegistered: whether this user row is linked to an email account (users.account_id is not null).
+   Design note: guests already get everything free — registering is "nicer", not a paywall on guests.
+   Quota boosts stay modest (AI calls cost real money); convenience features are generous. */
 function isRegistered(userId) {
   const row = get("SELECT account_id FROM users WHERE id = ?", [userId]);
   return !!(row && row.account_id != null);
@@ -287,8 +287,8 @@ function usePaidReadings(userId, n = 1) {
 
 /* ---------- share-to-earn bonus readings ---------- */
 
-const SHARE_BONUS_PER_DAY = 2; // 游客每天最多靠分享赚 2 次
-const SHARE_BONUS_MEMBER_PER_DAY = 3; // 注册用户每天 3 次
+const SHARE_BONUS_PER_DAY = 2; // guests can earn up to 2/day via sharing
+const SHARE_BONUS_MEMBER_PER_DAY = 3; // registered users get 3/day
 
 function getBonusReadings(userId) {
   const row = get("SELECT bonus_readings FROM users WHERE id = ?", [userId]);
@@ -332,7 +332,7 @@ function shareGrantsLeftToday(userId) {
 
 /* ---------- referral: ?ref=<userId> invite links ----------
    The referred newcomer and the referrer each get bonus readings.
-   注册用户做推荐人时双方各 +2（游客推荐人 +1）——鼓励先注册再邀请。
+   When a member refers, both sides get +2 (+1 if the referrer is a guest) — nudge people to register before inviting.
    One referral per newcomer ever; referrer capped at 10 rewards/day. */
 const REFERRAL_PER_DAY_CAP = 10;
 const REFERRAL_REWARD_GUEST = 1;
@@ -355,10 +355,10 @@ function applyReferral(newUserId, refId) {
   return { applied: true, bonus: getBonusReadings(newUserId), rewardAmount: reward };
 }
 
-/* ---------- daily check-in （每日签到） ----------
+/* ---------- daily check-in ----------
    Beijing-date based (matches the almanac widget). Streak = consecutive
    days ending today (or yesterday if today not checked in yet).
-   Every 7th consecutive day grants bonus readings: 游客 +1，注册用户 +2. */
+   Every 7th consecutive day grants bonus readings: guests +1, members +2. */
 const CHECKIN_REWARD_EVERY = 7;
 const CHECKIN_REWARD_GUEST = 1;
 const CHECKIN_REWARD_MEMBER = 2;
@@ -405,7 +405,7 @@ function doCheckin(userId) {
 
 /* ---------- readings history ---------- */
 
-/* 注册用户每天首次追问免费：统计今天已追问次数 */
+/* members get their first follow-up free each day: count today's follow-ups */
 function followupsToday(userId) {
   const row = get(
     "SELECT COUNT(*) AS c FROM followups WHERE user_id = ? AND substr(created_at, 1, 10) = ?",
@@ -414,8 +414,8 @@ function followupsToday(userId) {
   return row ? row.c : 0;
 }
 
-/* ---------- 出生信息记忆（注册用户专享） ----------
-   保存命理排盘的出生信息，下次一键填入。只存排盘需要的字段。 */
+/* ---------- saved birth profiles (members only) ----------
+   Stores the birth info used for chart readings so it can be re-filled in one tap. Only the fields readings need. */
 function getBirthProfile(userId) {
   return get("SELECT * FROM birth_profiles WHERE user_id = ?", [userId]) || null;
 }
@@ -535,9 +535,9 @@ function recentUsers(limit = 20) {
   );
 }
 
-/* ---------- 邮箱验证码 ----------
-   注册 / 找回密码用。6 位数字，10 分钟有效，一次性使用，
-   连续验错 5 次作废。发码频率由 server 层的限流 + 60 秒冷却控制。 */
+/* ---------- email verification codes ----------
+   For registration / password reset. 6 digits, valid 10 minutes, one-time use,
+   voided after 5 wrong attempts. Send rate is controlled by server-side rate limiting + a 60-second cooldown. */
 const EMAIL_CODE_TTL_MS = 10 * 60 * 1000;
 const EMAIL_CODE_MAX_ATTEMPTS = 5;
 
@@ -556,7 +556,7 @@ function createEmailCode(email, purpose = "register") {
   return code;
 }
 
-// 上次发码时间（秒级冷却用），没有返回 null。
+// last code-sent timestamp (for the seconds-level cooldown); null if never.
 function emailCodeSentAt(email, purpose = "register") {
   const row = get("SELECT created_at FROM email_codes WHERE email = ? AND purpose = ?",
     [String(email).trim().toLowerCase(), purpose]);
@@ -581,7 +581,7 @@ function verifyEmailCode(email, code, purpose = "register") {
       [email, purpose]);
     return { ok: false, error: "验证码不对，再检查一下。" };
   }
-  // 一次性：验过即删
+  // one-time use: deleted once verified
   run("DELETE FROM email_codes WHERE email = ? AND purpose = ?", [email, purpose]);
   return { ok: true };
 }
@@ -659,7 +659,7 @@ function attachUserToAccount(userId, accountId) {
 // Move everything from an anonymous user row into the account's user row.
 function mergeUsers(fromUserId, toUserId) {
   if (!fromUserId || fromUserId === toUserId) return;
-  // 注册/登录时把游客时期的全部数据并入账号，一条不丢
+  // on register/login, merge all guest-era data into the account — nothing lost
   run("UPDATE readings SET user_id = ? WHERE user_id = ?", [toUserId, fromUserId]);
   run("UPDATE followups SET user_id = ? WHERE user_id = ?", [toUserId, fromUserId]);
   run("UPDATE divinations SET user_id = ? WHERE user_id = ?", [toUserId, fromUserId]);
@@ -675,24 +675,24 @@ function mergeUsers(fromUserId, toUserId) {
     );
   }
   run("DELETE FROM daily_usage WHERE user_id = ?", [fromUserId]);
-  // 分享/邀请攒的奖励次数累加
+  // add up bonus readings earned from sharing/referrals
   const from = get("SELECT readings_total, paid_readings, bonus_readings, referred_by FROM users WHERE id = ?", [fromUserId]);
   if (from) {
     run(
       "UPDATE users SET readings_total = readings_total + ?, paid_readings = paid_readings + ?, bonus_readings = bonus_readings + ? WHERE id = ?",
       [from.readings_total || 0, from.paid_readings || 0, from.bonus_readings || 0, toUserId]
     );
-    // 游客时期被邀请过、账号没有记录时，继承推荐关系（防重复领取由 applyReferral 兜底）
+    // if the guest was referred but the account has no referral record, inherit it (applyReferral guards against double claims)
     if (from.referred_by) {
       run("UPDATE users SET referred_by = COALESCE(referred_by, ?) WHERE id = ?", [from.referred_by, toUserId]);
     }
     run("DELETE FROM users WHERE id = ?", [fromUserId]);
   }
-  // 签到记录搬运（主键 user_id+day，账号已有则保留账号的）
+  // move check-in records over (PK is user_id+day; keep the account's copy if it already has one)
   run("INSERT OR IGNORE INTO checkins (user_id, day) SELECT ?, day FROM checkins WHERE user_id = ?",
     [toUserId, fromUserId]);
   run("DELETE FROM checkins WHERE user_id = ?", [fromUserId]);
-  // 分享领取记录按天合并
+  // merge share-claim records by day
   const grants = all("SELECT day, count FROM share_grants WHERE user_id = ?", [fromUserId]);
   for (const g of grants) {
     run(
@@ -731,7 +731,7 @@ function getDivinationDetail(userId, id) {
            input_json: undefined, chart_json: undefined };
 }
 
-/* ---------- journal (占卜日记) ---------- */
+/* ---------- journal (divination diary) ---------- */
 
 function saveJournal(userId, { title, content, mood, kind, refId }) {
   const t = now();

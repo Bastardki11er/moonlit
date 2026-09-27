@@ -13,10 +13,10 @@ are in English.
 - **Tarot**: 5 spreads (single card, love, career, money, Celtic Cross), each
   with its own card positions and reading angle. You can ask follow-up
   questions after a reading, and export the whole thing as a shareable image.
-- **Charts**: BaZi (八字), ZiWei (紫微斗数), Western natal chart. I used to ask
+- **Charts**: BaZi, ZiWei, Western natal chart. I used to ask
   for birth coordinates; nobody knew theirs, so I dropped the location
   requirement entirely.
-- **Daily stuff**: one-card-a-day, Chinese almanac (黄历), horoscopes for all
+- **Daily stuff**: one-card-a-day, Chinese almanac, horoscopes for all
   12 signs, check-in streaks.
 - **Accounts**: email + verification code login. Guests can use everything;
   their data merges into the account when they sign up, nothing gets lost.
@@ -54,4 +54,3 @@ get printed to the console.
 Deploy notes are in [DEPLOY.md](DEPLOY.md); third-party attributions in
 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
-Chinese versions: [README.zh-CN.md](README.zh-CN.md), [DEPLOY.zh-CN.md](DEPLOY.zh-CN.md)

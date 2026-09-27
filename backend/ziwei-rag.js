@@ -4,7 +4,7 @@
    If the open ziwei sample dataset (Renhuai123/ziwei-doushu,
    518,400 charts with interpretations — free for commercial use
    with attribution, see THIRD-PARTY-NOTICES.md) is downloaded into
-   backend/data/ziwei-samples/, this module indexes it by 命宫主星
+   backend/data/ziwei-samples/, this module indexes it by life-palace major stars
    and returns similar-chart interpretation snippets as few-shot
    context for the AI. If the data isn't there, everything is a
    graceful no-op — the site works fine without it.
@@ -24,7 +24,7 @@ const DATA_DIR = path.join(__dirname, "data", "ziwei-samples");
 const MAX_FILES = 20000;      // cap memory: index at most this many files
 const MAX_SNIPPET = 600;      // chars of interpretation text per example
 
-let index = null; // Map: "主星A|主星B" -> [snippet, ...]
+let index = null; // Map: "starA|starB" -> [snippet, ...]
 
 function soulMajorStars(chartJson) {
   try {
@@ -82,11 +82,11 @@ function buildIndex() {
       }
     } catch (e) { /* skip bad files */ }
   }
-  console.log(`   ziwei RAG: indexed ${index.size} 主星组合 from ${files.length} files` +
+  console.log(`   ziwei RAG: indexed ${index.size} star combinations from ${files.length} files` +
     (index.size ? "" : " (no usable samples — AI works without them)"));
 }
 
-/* Return up to k interpretation snippets from charts whose 命宫主星
+/* Return up to k interpretation snippets from charts whose life-palace major stars
    match this chart's. Empty array when the dataset isn't installed. */
 function findZiweiExamples(chartJson, k = 2) {
   if (index === null) buildIndex();
