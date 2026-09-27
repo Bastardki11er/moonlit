@@ -787,3 +787,121 @@ footer a:hover { text-decoration: underline; }
 }
 .lightbox-close:hover { border-color: var(--gold); color: var(--gold); }
 .lightbox-hint { margin-top: .7rem; }
+
+/* ============================================================
+   Growth pack — 黄历 / 星座 / 签到 / 分享 / 引导
+   ============================================================ */
+
+/* ---------- 今日黄历 ---------- */
+.hl-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.hl-date b { font-size: 1.35rem; color: var(--gold-soft); }
+.hl-lunar { color: var(--muted); font-size: .9rem; }
+.hl-row { display: flex; gap: 10px; margin: 8px 0; align-items: flex-start; }
+.hl-label { flex: none; width: 34px; height: 34px; border-radius: 50%; display: flex;
+  align-items: center; justify-content: center; font-weight: bold; font-size: 1.05rem; }
+.hl-row:first-of-type .hl-label, .hl-label { background: rgba(212,175,55,.14); color: var(--gold); border: 1px solid var(--gold-deep); }
+.hl-row:nth-of-type(2) .hl-label { background: rgba(255,157,157,.1); color: var(--danger); border: 1px solid #6b3a3a; }
+.hl-chips { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 4px; }
+.hl-chip { font-size: .85rem; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line-soft); }
+.hl-chip.yi { background: rgba(212,175,55,.1); border-color: var(--gold-deep); color: var(--gold-soft); }
+.hl-chip.ji { background: rgba(255,157,157,.07); color: var(--muted); }
+.hl-meta { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 12px 0 4px; font-size: .9rem; color: var(--text); }
+.hl-more { margin-top: 8px; }
+.hl-more summary { cursor: pointer; color: var(--purple); font-size: .9rem; }
+.hl-hours { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin: 10px 0; }
+.hl-hour { border: 1px solid var(--line-soft); border-radius: 10px; padding: 6px 2px;
+  text-align: center; font-size: .85rem; display: flex; flex-direction: column; gap: 2px; }
+.hl-hour small { color: var(--muted); font-size: .68rem; }
+.hl-hour b { font-size: .78rem; }
+.hl-hour.good b { color: var(--gold); }
+.hl-hour.bad { opacity: .55; }
+.hl-hour.bad b { color: var(--danger); }
+.hl-foot { color: var(--muted); font-size: .8rem; margin: 8px 0 0; }
+
+/* ---------- 星座运势 ---------- */
+.horo-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-bottom: 14px; }
+.horo-sign { background: rgba(23,20,49,.7); border: 1px solid var(--line-soft); border-radius: 12px;
+  color: var(--text); padding: 8px 2px; font-size: .78rem; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease; }
+.horo-sign:hover { transform: translateY(-2px); border-color: var(--gold); }
+.horo-sign.active { border-color: var(--gold); box-shadow: 0 0 12px rgba(212,175,55,.35); background: rgba(212,175,55,.08); }
+.horo-icon { font-size: 1.3rem; }
+.horo-detail { background: rgba(13,11,26,.5); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
+.horo-title { font-size: 1.1rem; margin-bottom: 8px; }
+.horo-dim { margin: 8px 0; }
+.horo-dim-head { display: flex; justify-content: space-between; font-size: .9rem; color: var(--gold-soft); }
+.horo-stars { color: var(--gold); letter-spacing: 2px; }
+.horo-dim p { margin: 4px 0 0; font-size: .92rem; }
+.horo-lucky { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 10px; font-size: .9rem; }
+.horo-lucky b { color: var(--gold-soft); }
+
+/* ---------- 签到 ---------- */
+.checkin-row { display: flex; align-items: center; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
+.checkin-meta { display: flex; align-items: center; gap: 10px; }
+.ck-dots { display: inline-flex; gap: 5px; }
+.ck-dot { width: 12px; height: 12px; border-radius: 50%; border: 1px solid var(--line-soft); background: transparent; }
+.ck-dot.on { background: var(--gold); border-color: var(--gold); box-shadow: 0 0 8px rgba(212,175,55,.7); }
+.ck-dot.gift { border-color: var(--gold-deep); }
+.ck-dot.gift.on { background: radial-gradient(circle at 35% 35%, var(--gold-soft), var(--gold-deep)); }
+
+/* ---------- 分享裂变 ---------- */
+.share-btns { display: flex; gap: 10px; flex-wrap: wrap; margin: 10px 0; }
+.primary { background: linear-gradient(135deg, var(--gold-deep), var(--gold)); color: #17131a;
+  border: none; border-radius: 12px; padding: 12px 22px; font-size: 1rem; font-weight: bold; cursor: pointer;
+  box-shadow: 0 4px 18px rgba(212,175,55,.35); transition: transform .15s ease; }
+.primary:hover { transform: translateY(-2px); }
+.primary:active { transform: translateY(0); }
+.invite-link { word-break: break-all; font-size: .78rem; color: var(--purple); min-height: 1em; }
+.share-status { font-size: .92rem; }
+.share-status b { color: var(--gold-soft); }
+
+/* ---------- 三步上手 / FAQ ---------- */
+.how-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.how-step { background: rgba(13,11,26,.5); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 14px 10px; text-align: center; display: flex; flex-direction: column; gap: 6px; align-items: center; }
+.how-num { width: 30px; height: 30px; border-radius: 50%; background: rgba(212,175,55,.15);
+  border: 1px solid var(--gold-deep); color: var(--gold); font-weight: bold;
+  display: flex; align-items: center; justify-content: center; }
+.home-faq details { border: 1px solid var(--line); border-radius: 12px; margin: 8px 0; padding: 10px 14px;
+  background: rgba(13,11,26,.4); }
+.home-faq summary { cursor: pointer; color: var(--gold-soft); font-size: .95rem; }
+.home-faq p { color: var(--text); font-size: .9rem; margin: 8px 0 4px; }
+
+/* ---------- 新手引导 ---------- */
+#onboard-overlay { position: fixed; inset: 0; z-index: 400; background: rgba(8,6,20,.82);
+  backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; padding: 20px;
+  animation: onboardIn .35s cubic-bezier(.2,.8,.25,1); }
+@keyframes onboardIn { from { opacity: 0; } to { opacity: 1; } }
+.onboard-card { background: var(--panel); border: 1px solid var(--gold-deep); border-radius: 20px;
+  padding: 28px 24px; max-width: 420px; width: 100%; text-align: center;
+  box-shadow: 0 0 60px rgba(212,175,55,.25); animation: onboardPop .4s cubic-bezier(.3,.7,.3,1.15); }
+@keyframes onboardPop { from { transform: scale(.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.onboard-moon { font-size: 2.6rem; }
+.onboard-card h3 { margin: 8px 0 4px; color: var(--gold-soft); }
+.onboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+.onboard-opt { background: rgba(13,11,26,.6); border: 1px solid var(--line-soft); border-radius: 14px;
+  color: var(--text); padding: 14px 8px; font-size: .95rem; cursor: pointer;
+  display: flex; flex-direction: column; gap: 6px; align-items: center;
+  transition: transform .15s ease, border-color .15s ease; }
+.onboard-opt span { font-size: 1.6rem; }
+.onboard-opt:hover { transform: translateY(-2px); border-color: var(--gold); }
+
+/* ---------- toast ---------- */
+#moonlit-toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%) translateY(20px);
+  background: rgba(23,20,49,.95); border: 1px solid var(--gold-deep); color: var(--text);
+  padding: 12px 22px; border-radius: 999px; font-size: .92rem; z-index: 500;
+  opacity: 0; pointer-events: none; transition: opacity .25s ease, transform .25s ease;
+  max-width: 90vw; text-align: center; box-shadow: 0 8px 30px rgba(0,0,0,.5); }
+#moonlit-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ---------- 小屏适配 ---------- */
+@media (max-width: 560px) {
+  .horo-grid { grid-template-columns: repeat(4, 1fr); }
+  .hl-hours { grid-template-columns: repeat(4, 1fr); }
+  .how-grid { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #onboard-overlay, .onboard-card { animation: none; }
+  .horo-sign, .primary, .onboard-opt { transition: none; }
+}

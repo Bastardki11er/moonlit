@@ -33,7 +33,20 @@ CREATE TABLE IF NOT EXISTS users (
   last_seen_at  TEXT NOT NULL,
   nickname      TEXT,
   readings_total INTEGER NOT NULL DEFAULT 0,
-  paid_readings  INTEGER NOT NULL DEFAULT 0
+  paid_readings  INTEGER NOT NULL DEFAULT 0,
+  bonus_readings INTEGER NOT NULL DEFAULT 0,
+  referred_by  TEXT
+);
+CREATE TABLE IF NOT EXISTS share_grants (
+  user_id TEXT NOT NULL,
+  day     TEXT NOT NULL,
+  count   INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (user_id, day)
+);
+CREATE TABLE IF NOT EXISTS checkins (
+  user_id TEXT NOT NULL,
+  day     TEXT NOT NULL,   -- Beijing date (user-facing daily ritual)
+  PRIMARY KEY (user_id, day)
 );
 CREATE TABLE IF NOT EXISTS readings (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -156,6 +169,10 @@ async function init() {
   db.exec(SCHEMA);
   // Migration for databases created before email accounts existed.
   try { db.exec("ALTER TABLE users ADD COLUMN account_id INTEGER"); } catch (e) { /* already there */ }
+  // Migration for the share-to-earn bonus readings (2026-09-26).
+  try { db.exec("ALTER TABLE users ADD COLUMN bonus_readings INTEGER NOT NULL DEFAULT 0"); } catch (e) { /* already there */ }
+  // Migration for referral attribution (2026-09-26).
+  try { db.exec("ALTER TABLE users ADD COLUMN referred_by TEXT"); } catch (e) { /* already there */ }
   persist();
   return api;
 }
@@ -218,6 +235,114 @@ function usePaidReadings(userId, n = 1) {
     return true;
   }
   return false;
+}
+
+/* ---------- share-to-earn bonus readings ---------- */
+
+const SHARE_BONUS_PER_DAY = 2; // max bonus readings earnable per user per day
+
+function getBonusReadings(userId) {
+  const row = get("SELECT bonus_readings FROM users WHERE id = ?", [userId]);
+  return row ? (row.bonus_readings | 0) : 0;
+}
+
+function useBonusReadings(userId, n = 1) {
+  n = Math.max(1, Math.min(10, n | 0));
+  const row = get("SELECT bonus_readings FROM users WHERE id = ?", [userId]);
+  if (row && row.bonus_readings >= n) {
+    run("UPDATE users SET bonus_readings = bonus_readings - ? WHERE id = ?", [n, userId]);
+    return true;
+  }
+  return false;
+}
+
+/* Grant +1 bonus reading for sharing. Capped at SHARE_BONUS_PER_DAY/day. */
+function grantShareBonus(userId) {
+  const day = today();
+  const row = get("SELECT count FROM share_grants WHERE user_id = ? AND day = ?", [userId, day]);
+  const used = row ? row.count : 0;
+  if (used >= SHARE_BONUS_PER_DAY) {
+    return { ok: false, reason: "daily_cap", bonus: getBonusReadings(userId), grantsLeft: 0 };
+  }
+  run(
+    `INSERT INTO share_grants (user_id, day, count) VALUES (?, ?, 1)
+     ON CONFLICT(user_id, day) DO UPDATE SET count = count + 1`,
+    [userId, day]
+  );
+  run("UPDATE users SET bonus_readings = bonus_readings + 1 WHERE id = ?", [userId]);
+  persist();
+  return { ok: true, bonus: getBonusReadings(userId), grantsLeft: SHARE_BONUS_PER_DAY - used - 1 };
+}
+
+function shareGrantsLeftToday(userId) {
+  const row = get("SELECT count FROM share_grants WHERE user_id = ? AND day = ?", [userId, today()]);
+  return SHARE_BONUS_PER_DAY - (row ? row.count : 0);
+}
+
+/* ---------- referral: ?ref=<userId> invite links ----------
+   The referred newcomer and the referrer each get +1 bonus reading.
+   One referral per newcomer ever; referrer capped at 10 rewards/day. */
+const REFERRAL_PER_DAY_CAP = 10;
+function applyReferral(newUserId, refId) {
+  if (!refId || !UUID_RE.test(refId) || refId === newUserId) return { applied: false };
+  const refUser = get("SELECT id FROM users WHERE id = ?", [refId]);
+  if (!refUser) return { applied: false };
+  const me = get("SELECT referred_by FROM users WHERE id = ?", [newUserId]);
+  if (!me || me.referred_by) return { applied: false }; // already referred once
+  const given = get(
+    "SELECT COUNT(*) AS c FROM users WHERE referred_by = ? AND created_at >= ?",
+    [refId, today()]
+  );
+  if (given && given.c >= REFERRAL_PER_DAY_CAP) return { applied: false, reason: "referrer_cap" };
+  run("UPDATE users SET referred_by = ? WHERE id = ?", [refId, newUserId]);
+  run("UPDATE users SET bonus_readings = bonus_readings + 1 WHERE id IN (?, ?)", [newUserId, refId]);
+  persist();
+  return { applied: true, bonus: getBonusReadings(newUserId) };
+}
+
+/* ---------- daily check-in （每日签到） ----------
+   Beijing-date based (matches the almanac widget). Streak = consecutive
+   days ending today (or yesterday if today not checked in yet).
+   Every 7th consecutive day grants +1 bonus reading. */
+const CHECKIN_REWARD_EVERY = 7;
+function beijingDay(d = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai" }).format(d);
+}
+function shiftDay(dayStr, delta) {
+  const d = new Date(dayStr + "T12:00:00Z");
+  d.setUTCDate(d.getUTCDate() + delta);
+  return d.toISOString().slice(0, 10);
+}
+function checkinStreak(userId) {
+  const todayBj = beijingDay();
+  let cursor = get("SELECT 1 AS x FROM checkins WHERE user_id = ? AND day = ?", [userId, todayBj])
+    ? todayBj : shiftDay(todayBj, -1);
+  let streak = 0;
+  while (streak < 370) {
+    const row = get("SELECT 1 AS x FROM checkins WHERE user_id = ? AND day = ?", [userId, cursor]);
+    if (!row) break;
+    streak++;
+    cursor = shiftDay(cursor, -1);
+  }
+  return { streak, checkedInToday: !!get(
+    "SELECT 1 AS x FROM checkins WHERE user_id = ? AND day = ?", [userId, todayBj]) };
+}
+function doCheckin(userId) {
+  const day = beijingDay();
+  const already = get("SELECT 1 AS x FROM checkins WHERE user_id = ? AND day = ?", [userId, day]);
+  if (already) {
+    const s = checkinStreak(userId);
+    return { ok: true, duplicate: true, ...s, rewardGranted: false };
+  }
+  run("INSERT INTO checkins (user_id, day) VALUES (?, ?)", [userId, day]);
+  const s = checkinStreak(userId);
+  let rewardGranted = false;
+  if (s.streak > 0 && s.streak % CHECKIN_REWARD_EVERY === 0) {
+    run("UPDATE users SET bonus_readings = bonus_readings + 1 WHERE id = ?", [userId]);
+    rewardGranted = true;
+  }
+  persist();
+  return { ok: true, duplicate: false, ...s, rewardGranted, bonus: getBonusReadings(userId) };
 }
 
 /* ---------- readings history ---------- */
@@ -487,6 +612,13 @@ const api = {
   addPaidReadings,
   usePaidReading,
   usePaidReadings,
+  getBonusReadings,
+  useBonusReadings,
+  grantShareBonus,
+  shareGrantsLeftToday,
+  applyReferral,
+  checkinStreak,
+  doCheckin,
   saveReading,
   getReadings,
   getReadingDetail,

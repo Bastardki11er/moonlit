@@ -52,6 +52,59 @@ async function req(method, p, { body, headers } = {}) {
     r.status === 200 && r.json?.userId && r.json.userId !== "hacker",
     `got ${JSON.stringify(r.json)?.slice(0, 80)}`);
 
+
+  console.log("— growth endpoints (almanac / share / referral / checkin)");
+  // almanac: valid date
+  r = await req("GET", "/api/almanac?date=2026-09-26");
+  ok("almanac valid date -> 200 with 宜忌",
+    r.status === 200 && Array.isArray(r.json?.suitable) && Array.isArray(r.json?.avoid),
+    `got ${r.status}`);
+  // almanac: bad inputs
+  r = await req("GET", "/api/almanac?date=abc");
+  ok("almanac bad date -> 400", r.status === 400, `got ${r.status}`);
+  r = await req("GET", "/api/almanac?date=2019-05-05");
+  ok("almanac out-of-range date -> 400", r.status === 400, `got ${r.status}`);
+  // share grant: 2 ok, 3rd capped
+  const mk = await req("POST", "/api/user/init", { body: {} });
+  const tu = mk.json.userId;
+  r = await req("POST", "/api/share-grant", { body: { userId: tu } });
+  ok("share-grant #1 -> ok, bonus=1", r.status === 200 && r.json?.ok === true && r.json?.bonus === 1,
+    `got ${r.status} ${JSON.stringify(r.json)?.slice(0, 60)}`);
+  r = await req("POST", "/api/share-grant", { body: { userId: tu } });
+  ok("share-grant #2 -> ok, bonus=2", r.status === 200 && r.json?.ok === true && r.json?.bonus === 2,
+    `got ${r.status}`);
+  r = await req("POST", "/api/share-grant", { body: { userId: tu } });
+  ok("share-grant #3 -> daily cap", r.status === 200 && r.json?.ok === false && r.json?.reason === "daily_cap",
+    `got ${r.status} ${JSON.stringify(r.json)?.slice(0, 60)}`);
+  // referral: newcomer via ref link -> both get +1
+  const refMk = await req("POST", "/api/user/init", { body: {} });
+  const referrer = refMk.json.userId;
+  const newMk = await req("POST", "/api/user/init", { body: { ref: referrer } });
+  ok("referral applied on init", newMk.json?.referralApplied === true, `got ${JSON.stringify(newMk.json)?.slice(0, 80)}`);
+  const stNew = await req("GET", "/api/share-status?userId=" + newMk.json.userId);
+  const stRef = await req("GET", "/api/share-status?userId=" + referrer);
+  ok("referral: newcomer + referrer each +1 bonus",
+    stNew.json?.bonus === 1 && stRef.json?.bonus === 1,
+    `new=${stNew.json?.bonus} ref=${stRef.json?.bonus}`);
+  // referral: self-ref and double-ref rejected
+  const selfMk = await req("POST", "/api/user/init", { body: {} });
+  const selfId = selfMk.json.userId;
+  const selfRef = await req("POST", "/api/user/init", { body: { userId: selfId, ref: selfId } });
+  ok("self-referral rejected", selfRef.json?.referralApplied !== true, `got ${JSON.stringify(selfRef.json)?.slice(0, 60)}`);
+  const dblRef = await req("POST", "/api/user/init", { body: { userId: newMk.json.userId, ref: referrer } });
+  ok("second referral for same user rejected", dblRef.json?.referralApplied !== true);
+  // checkin: first ok, duplicate ok, streak sane
+  r = await req("POST", "/api/checkin", { body: { userId: tu } });
+  ok("checkin first -> ok streak>=1", r.status === 200 && r.json?.ok === true && (r.json?.streak || 0) >= 1,
+    `got ${r.status} ${JSON.stringify(r.json)?.slice(0, 60)}`);
+  r = await req("POST", "/api/checkin", { body: { userId: tu } });
+  ok("checkin duplicate -> ok, no double count", r.status === 200 && r.json?.duplicate === true,
+    `got ${r.status}`);
+  r = await req("GET", "/api/checkin/status?userId=" + tu);
+  ok("checkin status -> checkedInToday", r.status === 200 && r.json?.checkedInToday === true,
+    `got ${r.status}`);
+
+
   // 8. rate limiting: 35 rapid inits, limit is 30/hour -> expect some 429
   const codes = await Promise.all(
     Array.from({ length: 35 }, () => req("POST", "/api/user/init", { body: {} }).then((x) => x.status))

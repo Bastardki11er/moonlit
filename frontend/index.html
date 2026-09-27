@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>月光塔罗 — 塔罗占卜 · 八字 · 紫微 · 星盘</title>
 <meta name="description" content="月光塔罗：在线塔罗占卜、八字排盘、紫微斗数、西方星盘，中文深度解读，附占卜日记。" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="月光塔罗" />
+<meta property="og:title" content="月光塔罗 — 塔罗占卜 · 八字 · 紫微 · 星盘" />
+<meta property="og:description" content="写下问题，抽一张牌 —— 78 张定制牌面、八字紫微星盘，中文深度解读。每天 3 次免费占卜。" />
+<meta property="og:url" content="https://moontarot.tech/" />
+<meta property="og:image" content="https://moontarot.tech/img/og-cover.png" />
+<meta name="twitter:card" content="summary_large_image" />
 <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
@@ -48,8 +55,29 @@
           <p id="daily-meaning" class="daily-meaning"></p>
           <p id="daily-fortune" class="daily-fortune"></p>
           <button id="daily-share" class="ghost">📤 分享今日之牌</button>
+          <div class="checkin-row">
+            <button id="checkin-btn" class="ghost">📅 每日签到</button>
+            <div class="checkin-meta">
+              <span id="checkin-info" class="hint"></span>
+              <span id="checkin-dots" class="ck-dots"></span>
+            </div>
+          </div>
+          <p class="hint" style="margin-top:6px">连续签到 7 天，+1 次免费解读 🎁</p>
         </div>
       </div>
+    </section>
+
+    <!-- 今日黄历：每天回来的理由 -->
+    <section class="panel" id="almanac-panel">
+      <h2>📅 今日黄历</h2>
+      <div id="almanac-box"><p class="hint">黄历加载中…</p></div>
+    </section>
+
+    <!-- 十二星座今日运势 -->
+    <section class="panel" id="horo-panel">
+      <h2>♈ 十二星座今日运势</h2>
+      <div id="horo-grid" class="horo-grid"></div>
+      <div id="horo-detail" class="horo-detail"></div>
     </section>
 
     <!-- 功能入口：大磁贴 -->
@@ -87,6 +115,38 @@
           <span class="feature-go">进入 →</span>
         </button>
       </div>
+    </section>
+
+    <!-- 分享裂变：邀请 + 分享赚次数 -->
+    <section class="panel" id="share-earn">
+      <h2>🎁 分享赚免费次数</h2>
+      <p class="hint">把月光塔罗分享给朋友 —— 朋友通过你的链接进来，你们 <b>各得 +1 次</b>免费解读；每天分享最多再领 <b>2 次</b>。</p>
+      <div class="share-btns">
+        <button id="share-btn" class="primary">📤 分享给朋友</button>
+        <button id="copy-invite-btn" class="ghost">🔗 复制邀请链接</button>
+      </div>
+      <p id="invite-link-text" class="hint invite-link" title="点击上方按钮复制"></p>
+      <p id="share-status-line" class="share-status"></p>
+    </section>
+
+    <!-- 三步上手 -->
+    <section class="panel home-how">
+      <h2>🌙 三步，开始你的第一次占卜</h2>
+      <div class="how-grid">
+        <div class="how-step"><span class="how-num">1</span><b>写下问题</b><span class="hint">越具体，解读越准</span></div>
+        <div class="how-step"><span class="how-num">2</span><b>抽牌 / 排盘</b><span class="hint">78 张定制牌面，八字紫微星盘</span></div>
+        <div class="how-step"><span class="how-num">3</span><b>看中文解读</b><span class="hint">还能继续追问，越问越深</span></div>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="panel home-faq">
+      <h2>💬 常见问题</h2>
+      <details><summary>免费吗？</summary><p>免费。每天有 3 次免费占卜额度；通过每日签到、分享、邀请朋友还能赚更多，不会过期。</p></details>
+      <details><summary>解读是怎么生成的？</summary><p>每一次解读都结合你抽到的牌面（或排盘）和你的问题实时生成，不是固定的模板话术；看完还能继续追问。</p></details>
+      <details><summary>我的生日信息会被保存吗？</summary><p>排盘只需要出生年月日时，用于计算命盘；你可以随时在占卜日记里删除记录。</p></details>
+      <details><summary>占卜结果准吗？</summary><p>塔罗和命理是流传千年的传统文化，月光塔罗把它做成陪伴你的方式。建议当作启发和参考，重要决定还是要自己拿主意 —— 传统民俗，仅供娱乐。</p></details>
+      <details><summary>额度用完了怎么办？</summary><p>三招：① 每日签到攒连续天数 ② 把解读分享给朋友 ③ 邀请朋友一起来，各得 +1 次。</p></details>
     </section>
   </div>
 
@@ -367,6 +427,7 @@
 
 <script src="js/cards.js"></script>
 <script src="js/card-names-zh.js"></script>
+<script src="js/growth.js"></script>
 <script src="js/app.js"></script>
 <script src="js/divination.js"></script>
 </body>

@@ -30,6 +30,7 @@ const { rateLimit, adminBruteForceGuard } = require("./security");
 const { isValidUUID, validateReadingInput, validateFollowupInput,
   validateBirthInput, validateJournalInput } = require("./validate");
 const { buildReading, calcAstro } = require("./divination");
+const { calculateDailyAlmanac } = require("taibu-core/almanac");
 const { ragStatus } = require("./ziwei-rag");
 // NOTE: the database needs async init (WebAssembly). userdb is assigned
 // at the bottom of this file before the server starts listening.
@@ -63,6 +64,10 @@ const checkoutLimiter = rateLimit({ windowMs: 60 * 1000, max: 30,
   message: "请求太频繁了，稍后再试。" });
 const notifyLimiter = rateLimit({ windowMs: 60 * 1000, max: 60,
   message: "Too many requests." });
+const infoLimiter = rateLimit({ windowMs: 60 * 1000, max: 60,
+  message: "请求太频繁了，稍后再试。" });
+const shareLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 20,
+  message: "分享太频繁了，休息一下再来吧。" });
 function checkAdmin(req, res, next) {
   if (!ADMIN_TOKEN) return res.status(503).json({ error: "Admin is not configured." });
   const t = req.query.token || req.headers["x-admin-token"];
@@ -199,10 +204,19 @@ function resolveUser(req) {
    anonymous id — the frontend saves it in localStorage. */
 app.post("/api/user/init", initLimiter, (req, res) => {
   const user = resolveUser(req);
+  // Referral: ?ref=<userId> — newcomer + referrer each earn a bonus reading.
+  let referralApplied = false;
+  try {
+    const ref = req.body && typeof req.body.ref === "string" ? req.body.ref.trim() : "";
+    if (ref) referralApplied = !!userdb.applyReferral(user.id, ref).applied;
+  } catch (e) { /* referral is best-effort, never blocks init */ }
   res.json({
     userId: user.id,
     readingsTotal: user.readings_total,
     paidReadings: user.paid_readings,
+    bonusReadings: userdb.getBonusReadings(user.id),
+    shareGrantsLeft: userdb.shareGrantsLeftToday(user.id),
+    referralApplied,
     freeLeft: userdb.freeLeftToday(user.id, FREE_PER_DAY),
   });
 });
@@ -450,10 +464,12 @@ app.post("/api/reading", readingLimiter, async (req, res) => {
     // Celtic Cross (10 cards) costs 2 quota: it burns ~3x the AI tokens.
     const user = resolveUser(req);
     const cost = cards.length >= 10 ? 2 : 1;
-    let usedPaidPack = false;
+    let usedPaidPack = false, usedBonus = false;
     if (PAYMENTS_ENABLED) {
       if (userdb.usePaidReadings(user.id, cost)) {
         usedPaidPack = true; // they bought readings — let them in
+      } else if (userdb.useBonusReadings(user.id, cost)) {
+        usedBonus = true; // 分享赚来的免费次数
       } else if (userdb.freeLeftToday(user.id, FREE_PER_DAY) < cost) {
         // No paid readings and no free readings left -> paywall
         return res.status(402).json({
@@ -471,7 +487,7 @@ app.post("/api/reading", readingLimiter, async (req, res) => {
     const readingId = userdb.saveReading(user.id, {
       question, spread: spread || "Tarot spread", cards, readingText: reading,
     });
-    if (!usedPaidPack) userdb.countReadingToday(user.id, cost);
+    if (!usedPaidPack && !usedBonus) userdb.countReadingToday(user.id, cost);
 
     res.json({
       reading,
@@ -503,10 +519,12 @@ app.post("/api/reading/followup", readingLimiter, async (req, res) => {
     }
 
     // Same quota rules as a reading (skipped while PAYMENTS_ENABLED=false).
-    let usedPaidPack = false;
+    let usedPaidPack = false, usedBonus = false;
     if (PAYMENTS_ENABLED) {
       if (userdb.usePaidReadings(user.id, 1)) {
         usedPaidPack = true;
+      } else if (userdb.useBonusReadings(user.id, 1)) {
+        usedBonus = true; // 分享赚来的免费次数
       } else if (userdb.freeLeftToday(user.id, FREE_PER_DAY) < 1) {
         return res.status(402).json({
           error: `Free readings used up for today. Unlock ${READINGS_PER_PACK} more for ¥${PRICE_CNY} ✨`,
@@ -520,7 +538,7 @@ app.post("/api/reading/followup", readingLimiter, async (req, res) => {
     const answer = await askAI(prompt);
 
     userdb.saveFollowup(reading.id, user.id, question, answer);
-    if (!usedPaidPack) userdb.countReadingToday(user.id, 1);
+    if (!usedPaidPack && !usedBonus) userdb.countReadingToday(user.id, 1);
 
     res.json({
       answer,
@@ -555,10 +573,12 @@ app.post("/api/divination/:kind", readingLimiter, async (req, res) => {
 
     // Same quota rules as tarot (skipped while PAYMENTS_ENABLED=false).
     const user = resolveUser(req);
-    let usedPaidPack = false;
+    let usedPaidPack = false, usedBonus = false;
     if (PAYMENTS_ENABLED) {
       if (userdb.usePaidReadings(user.id, 1)) {
         usedPaidPack = true;
+      } else if (userdb.useBonusReadings(user.id, 1)) {
+        usedBonus = true; // 分享赚来的免费次数
       } else if (userdb.freeLeftToday(user.id, FREE_PER_DAY) < 1) {
         return res.status(402).json({
           error: `Free readings used up for today. Unlock ${READINGS_PER_PACK} more for ¥${PRICE_CNY} ✨`,
@@ -574,7 +594,7 @@ app.post("/api/divination/:kind", readingLimiter, async (req, res) => {
     const id = userdb.saveDivination(user.id, {
       kind, input: calcInput, chartJson, readingText: reading, question,
     });
-    if (!usedPaidPack) userdb.countReadingToday(user.id, 1);
+    if (!usedPaidPack && !usedBonus) userdb.countReadingToday(user.id, 1);
 
     res.json({ id, kind, name: DIVINATION_NAMES[kind], chart: chartJson, reading,
                extra: kind === "astro" ? extra : undefined,
@@ -639,6 +659,107 @@ app.delete("/api/journal/:id", (req, res) => {
   const ok = userdb.deleteJournal(user.id, Number(req.params.id));
   if (!ok) return res.status(404).json({ error: "找不到这篇日记。" });
   res.json({ ok: true });
+});
+
+/* ---------- 今日黄历 ----------
+   GET /api/almanac?date=YYYY-MM-DD （默认北京时间今天）
+   免费公开信息：农历、干支、宜忌、冲煞、财神方位、时辰吉凶。
+   数据来自 taibu-core 的传统黄历引擎，按日期缓存。 */
+const almanacCache = new Map(); // date -> slim almanac JSON (static per date)
+function beijingToday() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai" }).format(new Date());
+}
+function slimAlmanac(full) {
+  const a = full.almanac || {};
+  return {
+    date: full.date,
+    ganzhi: (full.dayInfo && full.dayInfo.ganZhi) || "",
+    lunar: a.lunarDate || "",
+    zodiac: a.zodiac || "",
+    suitable: a.suitable || [],
+    avoid: a.avoid || [],
+    chongSha: a.chongSha || "",
+    pengZu: a.pengZuBaiJi || "",
+    taiShen: a.taiShen || "",
+    directions: {
+      caiShen: (a.directions && a.directions.caiShen) || "",
+      xiShen: (a.directions && a.directions.xiShen) || "",
+    },
+    dayOfficer: a.dayOfficer || "",
+    tianShen: a.tianShen || "",
+    tianShenLuck: a.tianShenLuck || "",
+    lunarMansion: a.lunarMansion || "",
+    lunarMansionLuck: a.lunarMansionLuck || "",
+    nayin: a.nayin || "",
+    hours: (a.hourlyFortune || []).map((h) => ({
+      ganZhi: h.ganZhi, luck: h.tianShenLuck, god: h.tianShen,
+    })),
+  };
+}
+app.get("/api/almanac", infoLimiter, async (req, res) => {
+  try {
+    let date = (req.query.date || "").trim() || beijingToday();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ error: "日期格式应为 YYYY-MM-DD。" });
+    }
+    if (date < "2020-01-01" || date > "2035-12-31") {
+      return res.status(400).json({ error: "日期超出范围。" });
+    }
+    const d = new Date(date + "T12:00:00");
+    if (isNaN(d.getTime())) return res.status(400).json({ error: "无效的日期。" });
+    if (almanacCache.has(date)) return res.json(almanacCache.get(date));
+    const full = await calculateDailyAlmanac({ date });
+    const slim = slimAlmanac(full);
+    if (almanacCache.size > 60) almanacCache.clear();
+    almanacCache.set(date, slim);
+    res.json(slim);
+  } catch (err) {
+    console.error("Almanac failed:", err.message);
+    res.status(500).json({ error: "黄历加载失败，请稍后再试。" });
+  }
+});
+
+/* ---------- 分享赚免费次数 ----------
+   POST /api/share-grant  →  每天最多 2 次，每次 +1 bonus_readings。
+   bonus 在付费开启后按 免费→bonus→付费包 的顺序抵扣。 */
+app.post("/api/share-grant", shareLimiter, (req, res) => {
+  try {
+    const user = resolveUser(req);
+    const r = userdb.grantShareBonus(user.id);
+    res.json({ userId: user.id, ...r });
+  } catch (err) {
+    console.error("Share grant failed:", err.message);
+    res.status(500).json({ error: "领取失败，请稍后再试。" });
+  }
+});
+app.get("/api/share-status", (req, res) => {
+  const user = resolveUser(req);
+  res.json({
+    userId: user.id,
+    bonus: userdb.getBonusReadings(user.id),
+    grantsLeft: userdb.shareGrantsLeftToday(user.id),
+  });
+});
+
+/* ---------- 每日签到 ----------
+   POST /api/checkin → { ok, streak, checkedInToday, rewardGranted }
+   GET  /api/checkin/status → { streak, checkedInToday } */
+app.post("/api/checkin", infoLimiter, (req, res) => {
+  try {
+    const user = resolveUser(req);
+    res.json({ userId: user.id, ...userdb.doCheckin(user.id) });
+  } catch (err) {
+    console.error("Checkin failed:", err.message);
+    res.status(500).json({ error: "签到失败，请稍后再试。" });
+  }
+});
+app.get("/api/checkin/status", (req, res) => {
+  try {
+    const user = resolveUser(req);
+    res.json({ userId: user.id, ...userdb.checkinStreak(user.id) });
+  } catch (err) {
+    res.status(500).json({ error: "加载失败。" });
+  }
 });
 /* ---------- XorPay checkout: visitor pays ¥9.9 once ----------
    Body: { method: "wechat" | "alipay" }

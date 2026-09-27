@@ -89,14 +89,19 @@ async function initUser() {
       setLoggedOut(); // token expired or revoked
     }
     const stored = localStorage.getItem("moonlit_uid");
+    const pendingRef = (() => { try { return localStorage.getItem("moonlit_ref"); } catch (e) { return null; } })();
     const res = await fetch("/api/user/init", {
       method: "POST",
       headers: authHeaders(),
-      body: JSON.stringify({ userId: stored }),
+      body: JSON.stringify({ userId: stored, ref: pendingRef || undefined }),
     });
     const data = await res.json();
     moonlitUserId = data.userId;
     localStorage.setItem("moonlit_uid", moonlitUserId);
+    if (data.referralApplied) {
+      window.__referralApplied = true;
+      if (typeof window.__onReferralApplied === "function") window.__onReferralApplied();
+    }
     renderAuthButton();
     updateHistoryBadge();
   } catch (e) { /* offline — readings still work, just not saved */ }
