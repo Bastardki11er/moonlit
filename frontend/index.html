@@ -23,7 +23,8 @@
     </div>
   </div>
   <nav class="topnav" id="topnav" aria-label="主导航">
-    <button data-view="tarot" class="navbtn active">🔮 塔罗</button>
+    <button data-view="home" class="navbtn active">🏠 首页</button>
+    <button data-view="tarot" class="navbtn">🔮 塔罗</button>
     <button data-view="bazi" class="navbtn">📜 八字</button>
     <button data-view="ziwei" class="navbtn">⭐ 紫微</button>
     <button data-view="astro" class="navbtn">🪐 星盘</button>
@@ -34,19 +35,13 @@
 </header>
 
 <main>
-  <!-- ============ 塔罗占卜 ============ -->
-  <div id="view-tarot" class="view">
-    <div class="toolbar">
-      <button id="nav-start" class="navbtn">🔮 开始占卜</button>
-      <button id="nav-history" class="navbtn">📜 我的记录 <span id="history-count" class="count-badge" hidden></span></button>
-      <a href="#gallery" class="navbtn linkbtn">🖼 牌鉴</a>
-    </div>
-
+  <!-- ============ 首页 ============ -->
+  <div id="view-home" class="view">
     <!-- 每日一牌：每天一张，留住回头客 -->
     <section id="daily" class="panel">
       <h2>🌙 今日之牌 · <span id="daily-date"></span></h2>
       <div class="daily-wrap">
-        <img id="daily-art" class="daily-art" alt="今日塔罗牌" />
+        <img id="daily-art" class="daily-art zoomable" alt="今日塔罗牌" title="点击放大查看" />
         <div class="daily-text">
           <div id="daily-name" class="daily-name"></div>
           <div id="daily-orient" class="hint"></div>
@@ -56,6 +51,52 @@
         </div>
       </div>
     </section>
+
+    <!-- 功能入口：大磁贴 -->
+    <section class="panel home-features">
+      <h2>✨ 选择你的方式</h2>
+      <div class="feature-grid">
+        <button class="feature-tile" data-goto="tarot">
+          <span class="feature-icon">🔮</span>
+          <span class="feature-title">塔罗占卜</span>
+          <span class="feature-desc">抽牌问事 · 78 张定制牌面 · 中文深度解读</span>
+          <span class="feature-go">进入 →</span>
+        </button>
+        <button class="feature-tile" data-goto="bazi">
+          <span class="feature-icon">📜</span>
+          <span class="feature-title">八字排盘</span>
+          <span class="feature-desc">生辰八字 · 十年大运 · 一目了然</span>
+          <span class="feature-go">进入 →</span>
+        </button>
+        <button class="feature-tile" data-goto="ziwei">
+          <span class="feature-icon">⭐</span>
+          <span class="feature-title">紫微斗数</span>
+          <span class="feature-desc">十四主星 · 命盘格局 · 细批流年</span>
+          <span class="feature-go">进入 →</span>
+        </button>
+        <button class="feature-tile" data-goto="astro">
+          <span class="feature-icon">🪐</span>
+          <span class="feature-title">西方星盘</span>
+          <span class="feature-desc">行星相位 · 看见你的天赋与课题</span>
+          <span class="feature-go">进入 →</span>
+        </button>
+        <button class="feature-tile" data-goto="journal">
+          <span class="feature-icon">📓</span>
+          <span class="feature-title">占卜日记</span>
+          <span class="feature-desc">记录每一次心动 · 时间会给你答案</span>
+          <span class="feature-go">进入 →</span>
+        </button>
+      </div>
+    </section>
+  </div>
+
+  <!-- ============ 塔罗占卜 ============ -->
+  <div id="view-tarot" class="view" hidden>
+    <div class="toolbar">
+      <button id="nav-start" class="navbtn">🔮 开始占卜</button>
+      <button id="nav-history" class="navbtn">📜 我的记录 <span id="history-count" class="count-badge" hidden></span></button>
+      <a href="#gallery" class="navbtn linkbtn">🖼 牌鉴</a>
+    </div>
 
     <!-- 第一步：问题 -->
     <section id="step-question" class="panel">
@@ -312,6 +353,16 @@
       <button id="journal-delete" class="ghost danger" hidden>🗑️ 删除</button>
     </div>
   </div>
+</div>
+
+<!-- 图片放大查看（灯箱） -->
+<div id="lightbox" class="lightbox" hidden>
+  <button id="lightbox-close" class="lightbox-close" aria-label="关闭">✕</button>
+  <figure class="lightbox-fig">
+    <img id="lightbox-img" alt="" />
+    <figcaption id="lightbox-cap" class="lightbox-cap"></figcaption>
+  </figure>
+  <p class="lightbox-hint hint">点击任意处关闭</p>
 </div>
 
 <script src="js/cards.js"></script>

@@ -699,3 +699,91 @@ footer a:hover { text-decoration: underline; }
 .journal-actions { display: flex; gap: .7rem; margin-top: .6rem; }
 .journal-actions .cta { margin-top: 0; padding: .8rem; }
 .journal-actions .ghost { margin-top: 0; }
+
+/* ================= 首页功能磁贴 ================= */
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+.feature-tile {
+  display: flex; flex-direction: column; align-items: center; gap: .55rem;
+  padding: 1.7rem 1rem 1.4rem;
+  background: linear-gradient(160deg, rgba(212,175,55,.10), rgba(139,123,216,.07));
+  border: 1px solid var(--line-soft);
+  border-radius: 18px;
+  color: var(--text);
+  cursor: pointer;
+  font-family: inherit;
+  transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
+}
+.feature-tile:hover {
+  transform: translateY(-4px);
+  border-color: var(--gold);
+  box-shadow: 0 12px 30px rgba(0,0,0,.45);
+}
+.feature-tile:active { transform: translateY(-1px); }
+.feature-icon { font-size: 2.8rem; line-height: 1; }
+.feature-title { font-size: 1.3rem; font-weight: 700; color: var(--gold-soft); letter-spacing: 3px; }
+.feature-desc { font-size: .82rem; color: var(--muted); font-family: Arial, sans-serif; line-height: 1.65; text-align: center; }
+.feature-go { font-size: .88rem; color: var(--gold); margin-top: .25rem; letter-spacing: 1px; }
+
+/* ================= 解读结果：牌面缩略图 ================= */
+.cards-summary {
+  display: flex; gap: 1rem; flex-wrap: wrap;
+  margin-bottom: 1.2rem; justify-content: center;
+}
+.result-card { text-align: center; }
+.result-card img {
+  width: 104px; display: block;
+  border-radius: 10px; border: 1px solid var(--line-soft);
+  box-shadow: 0 6px 18px rgba(0,0,0,.45);
+  transition: transform .16s ease;
+}
+.result-card img.reversed { transform: rotate(180deg); }
+.result-card img:not(.reversed):hover { transform: translateY(-4px) scale(1.04); }
+.result-card img.reversed:hover { transform: rotate(180deg) translateY(-4px) scale(1.04); }
+.result-card-name {
+  margin-top: .45rem; font-size: .78rem; color: var(--muted);
+  font-family: Arial, sans-serif; line-height: 1.55;
+}
+
+/* ================= 历史记录：牌面缩略图 ================= */
+.history-thumbs { display: flex; gap: .55rem; flex-wrap: wrap; margin-bottom: .9rem; }
+.history-thumbs img {
+  width: 62px; display: block;
+  border-radius: 8px; border: 1px solid var(--line-soft);
+  box-shadow: 0 4px 12px rgba(0,0,0,.4);
+}
+.history-thumbs img.reversed { transform: rotate(180deg); }
+
+/* 可点放大的图统一给放大镜手型 */
+.zoomable { cursor: zoom-in; }
+
+/* ================= 图片灯箱 ================= */
+.lightbox {
+  position: fixed; inset: 0; z-index: 300;
+  background: rgba(5,4,12,.94);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 1.2rem; cursor: zoom-out;
+}
+.lightbox[hidden] { display: none; }
+.lightbox-fig { margin: 0; }
+.lightbox-fig img {
+  max-width: 92vw; max-height: 74vh;
+  border-radius: 12px; border: 1px solid var(--line-soft);
+  box-shadow: 0 16px 60px rgba(0,0,0,.65);
+}
+.lightbox-cap {
+  text-align: center; color: var(--gold-soft);
+  margin-top: .9rem; font-size: 1.05rem; letter-spacing: 1px;
+}
+.lightbox-close {
+  position: absolute; top: 1rem; right: 1.2rem;
+  width: 2.6rem; height: 2.6rem; border-radius: 50%;
+  border: 1px solid var(--line-soft); background: rgba(23,20,49,.85);
+  color: var(--text); font-size: 1.1rem; cursor: pointer;
+}
+.lightbox-close:hover { border-color: var(--gold); color: var(--gold); }
+.lightbox-hint { margin-top: .7rem; }

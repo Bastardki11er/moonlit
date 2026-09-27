@@ -35,7 +35,7 @@ async function api(path, opts) {
 const para = (t) => esc(t).replace(/\n/g, "<br>");
 
 /* ---------------- view tabs ---------------- */
-const VIEW_TITLES = { tarot: "塔罗占卜", bazi: "八字排盘", ziwei: "紫微斗数", astro: "西方星盘", journal: "占卜日记" };
+const VIEW_TITLES = { home: "首页", tarot: "塔罗占卜", bazi: "八字排盘", ziwei: "紫微斗数", astro: "西方星盘", journal: "占卜日记" };
 function switchView(name) {
   document.querySelectorAll("#topnav [data-view]").forEach((b) =>
     b.classList.toggle("active", b.dataset.view === name));
@@ -48,6 +48,11 @@ function switchView(name) {
 }
 document.querySelectorAll("#topnav [data-view]").forEach((btn) => {
   btn.addEventListener("click", () => switchView(btn.dataset.view));
+});
+
+/* 首页功能磁贴 → 跳转到对应视图 */
+document.querySelectorAll(".feature-tile[data-goto]").forEach((tile) => {
+  tile.addEventListener("click", () => switchView(tile.dataset.goto));
 });
 
 /* ---------------- birth form ---------------- */

@@ -295,9 +295,17 @@ function showReadingStep() {
   $("step-draw").hidden = true;
   const box = $("cards-summary");
   box.innerHTML = "";
+  // 直接展示抽到的牌面缩略图，点击可放大，不用再去牌鉴里找
   state.drawn.forEach((d) => {
-    box.appendChild(el("span", "chip",
-      d.position + ": " + zhCardName(d.card) + (d.reversed ? " ⟲" : "")));
+    const name = zhCardName(d.card);
+    const rev = !!d.reversed;
+    const cap = (d.position ? d.position + " · " : "") + name + (rev ? "（逆位）" : "（正位）");
+    const wrap = el("div", "result-card");
+    wrap.appendChild(cardThumb(d.card.id, cap, rev));
+    const label = el("div", "result-card-name",
+      escapeHtml(d.position) + "<br>" + escapeHtml(name) + (rev ? " ⟲逆位" : ""));
+    wrap.appendChild(label);
+    box.appendChild(wrap);
   });
   $("reading").hidden = true;
   $("reading-note").hidden = true;
@@ -602,6 +610,9 @@ function openCardModal(c) {
   const art = $("modal-art");
   art.src = "img/cards/" + c.id + ".webp";
   art.alt = zhCardName(c);
+  art.classList.add("zoomable");
+  art.title = "点击放大查看";
+  art.onclick = () => openLightbox(art.src, zhCardName(c));
   $("modal-name").textContent = zhCardName(c);
   $("modal-arcana").textContent =
     c.arcana === "major" ? "大阿卡纳" : "小阿卡纳 · " + (SUIT_ZH[c.suit] || c.suit);
@@ -617,16 +628,60 @@ function closeCardModal() {
   document.body.style.overflow = "";
 }
 
+/* ---------- 图片灯箱：点击任意牌图放大查看 ---------- */
+function openLightbox(src, caption, reversed) {
+  const lb = $("lightbox");
+  if (!lb || !src) return;
+  const img = $("lightbox-img");
+  img.src = src;
+  img.alt = caption || "";
+  img.style.transform = reversed ? "rotate(180deg)" : "";
+  $("lightbox-cap").textContent = caption || "";
+  lb.hidden = false;
+  document.body.style.overflow = "hidden";
+}
+function closeLightbox() {
+  const lb = $("lightbox");
+  if (!lb || lb.hidden) return;
+  lb.hidden = true;
+  // 只有其他弹窗都关了才恢复滚动
+  if ($("card-modal").hidden && $("journal-modal").hidden && $("auth-modal").hidden && $("share-modal").hidden) {
+    document.body.style.overflow = "";
+  }
+}
+
+if ($("lightbox")) {
+  $("lightbox").addEventListener("click", closeLightbox);
+}
+
+/* 牌面缩略图：共用的小图组件，点击放大 */
+function cardThumb(cardId, caption, reversed) {
+  const img = document.createElement("img");
+  img.src = "img/cards/" + cardId + ".webp";
+  img.alt = caption || "";
+  img.loading = "lazy";
+  img.className = "zoomable" + (reversed ? " reversed" : "");
+  img.title = "点击放大查看";
+  img.addEventListener("click", () => openLightbox(img.src, caption || "", !!reversed));
+  return img;
+}
+
 if ($("card-modal")) {
   $("modal-close").addEventListener("click", closeCardModal);
   $("card-modal").addEventListener("click", (e) => {
     if (e.target.id === "card-modal") closeCardModal();
   });
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") closeCardModal();
+    if (e.key === "Escape" && $("lightbox").hidden) closeCardModal();
   });
   buildGallery();
 }
+
+/* 灯箱的 Esc：注册在牌详情弹窗之后，且弹窗打开时跳过，
+   保证 Esc 只关闭最上层 */
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeLightbox();
+});
 
 /* ---------- 我的记录：reading history ----------
    Every reading is saved server-side under the visitor's user id.
@@ -702,6 +757,15 @@ async function openHistory() {
             "<div class='history-cards'>" + cardNames + "</div>" +
             "<div class='reading'>" + escapeHtml(full.reading_text).replace(/\n/g, "<br>") + "</div>" +
             fuHtml;
+          // 牌面缩略图：不用去牌鉴翻，点击直接放大
+          const thumbs = el("div", "history-thumbs");
+          (full.cards || []).forEach((c) => {
+            const nm = zhCardName(c);
+            const isRev = c.orientation === "reversed";
+            thumbs.appendChild(cardThumb(c.id,
+              (c.position ? c.position + " · " : "") + nm + (isRev ? "（逆位）" : "（正位）"), isRev));
+          });
+          if (thumbs.children.length) body.insertBefore(thumbs, body.firstChild);
           body.dataset.loaded = "1";
         } catch (e) {
           body.innerHTML = "<p class='hint'>加载失败，请重试。</p>";
@@ -1035,6 +1099,8 @@ function renderDailyCard() {
   $("daily-fortune").textContent = "月光说：" + meaning + "。带着这份提醒，好好过今天吧 ✨";
 
   dailyCardData = { card, reversed, meaning };
+  art.onclick = () => openLightbox(art.src,
+    zhCardName(card) + (reversed ? "（逆位）" : "（正位）"), reversed);
 }
 
 $("daily-share").addEventListener("click", async () => {
