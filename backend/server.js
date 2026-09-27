@@ -406,6 +406,30 @@ app.get("/api/admin/recent", adminLimiter, adminGuard.check, checkAdmin, (req, r
    shape you want the answer in. Tune this text and watch how
    the readings change — that tuning IS the business skill.
    ============================================================ */
+/* ---------- topic-specialized spreads （主题牌阵） ----------
+   Picking 感情 vs 事业 vs 财运 must produce a genuinely different reading,
+   not the same generic text with a keyword swapped in. Each topic spread
+   gives the AI a specialist role + an interpretation lens; the follow-up
+   prompt reuses the same lens so追问 stays in-topic. Inspired by the
+   vincitarot skill pattern (topic spreads with per-focus meanings). */
+const TOPIC_LENS = {
+  "💕 感情牌阵": {
+    role: "一位专精感情与亲密关系的塔罗解读师",
+    lens: "请全程用感情视角解读：关注求问者与对方各自的心态、两人的互动模式、沟通与信任。每张牌必须回答它在这个感情牌位上的具体含义，绝不泛泛而谈人生道理。可以谈关系走向，但不做\"一定分手/一定复合\"式断言。",
+  },
+  "💼 事业牌阵": {
+    role: "一位专精事业与职场发展的塔罗解读师",
+    lens: "请全程用事业视角解读：关注求问者的职场位置、核心能力、人际协作、关键选择。每张牌必须回答它在这个事业牌位上的具体含义，落到真实工作场景（项目、升迁、跳槽、合作）里说，不讲空泛的人生哲理。",
+  },
+  "💰 财运牌阵": {
+    role: "一位专精财富与金钱能量的塔罗解读师",
+    lens: "请全程用财运视角解读：关注收支结构、赚钱机会、花钱风险、理财心态。每张牌必须回答它在这个财运牌位上的具体含义。绝不给具体投资建议（不推荐股票/基金/币种、不预测涨跌），只谈金钱习惯与机会判断。",
+  },
+};
+function topicLensFor(spreadName) {
+  return TOPIC_LENS[spreadName] || null;
+}
+
 function buildPrompt(question, spreadName, cards) {
   const cardLines = cards
     .map(
@@ -415,15 +439,18 @@ function buildPrompt(question, spreadName, cards) {
     .join("\n");
   // Bigger spreads need more room: 10 cards can't fit in 300 characters.
   const lenHint = cards.length >= 10 ? "约 550-750 字" : "约 250-350 字";
+  const topic = topicLensFor(spreadName);
+  const roleLine = topic
+    ? `你是"月光塔罗"（Moonlit），${topic.role}，有 20 年经验。`
+    : `你是"月光塔罗"（Moonlit），一位有 20 年经验、温暖而深刻的塔罗占卜师。`;
 
-  return `你是"月光塔罗"（Moonlit），一位有 20 年经验、温暖而深刻的塔罗占卜师。\
-你说话温柔、直接、像朋友一样 — 从不说空话套话。
+  return `${roleLine}你说话温柔、直接、像朋友一样 — 从不说空话套话。
 
 求问者问："${question}"
 牌阵：${spreadName}
 抽到的牌：
 ${cardLines}
-
+${topic ? "\n本次解读视角：\n" + topic.lens + "\n" : ""}
 请用简体中文写一段个人化的塔罗解读（${lenHint}）：
 1. 开头用一句话共情他的问题。
 2. 结合牌位，逐张解读每张牌，并紧扣他的具体问题。
@@ -446,9 +473,12 @@ function buildFollowupPrompt(reading, question) {
   const prev = (reading.followups || [])
     .map((f) => `追问：${f.question}\n你的回答：${f.answer}`)
     .join("\n\n");
+  const topic = topicLensFor(reading.spread || "");
+  const roleLine = topic
+    ? `你是"月光塔罗"（Moonlit），${topic.role}，有 20 年经验。`
+    : `你是"月光塔罗"（Moonlit），一位有 20 年经验、温暖而深刻的塔罗占卜师。`;
 
-  return `你是"月光塔罗"（Moonlit），一位有 20 年经验、温暖而深刻的塔罗占卜师。\
-你说话温柔、直接、像朋友一样 — 从不说空话套话。
+  return `${roleLine}你说话温柔、直接、像朋友一样 — 从不说空话套话。
 
 这次占卜的完整记录：
 求问者最初的问题："${reading.question}"
@@ -460,7 +490,7 @@ ${cardLines}
 ${reading.reading_text}
 ${prev ? "\n之前的追问：\n" + prev + "\n" : ""}
 求问者现在追问："${question}"
-
+${topic ? "\n本次追问仍用该牌阵的视角：\n" + topic.lens + "\n" : ""}
 请用简体中文回答这次追问（150-250 字）：紧扣牌面和你之前的解读，只回答他这次问的，\
 不要把整段解读重复一遍。结尾可以给一句小建议。\
 绝不透露你是 AI。不给医疗、法律、投资建议；涉及健康请建议咨询专业人士。`;

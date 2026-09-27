@@ -13,11 +13,14 @@ const DEMO_MODE = false; // false = real AI readings via your backend (productio
                              // Set to true only to preview sample readings without a backend.
 
 const SPREADS = {
-  single: { name: "单张牌", count: 1, positions: ["你的答案"] },
-  three:  { name: "过去 · 现在 · 未来", count: 3, positions: ["过去", "现在", "未来"] },
-  five:   { name: "深度洞察", count: 5,
-            positions: ["现状", "挑战", "隐藏的影响", "指引", "结果"] },
-  celtic: { name: "凯尔特十字", count: 10,
+  single: { name: "🔮 单张指引", count: 1, positions: ["你的指引"] },
+  love:   { name: "💕 感情牌阵", count: 5,
+            positions: ["你的状态", "对方的状态", "关系现状", "阻碍", "未来发展"] },
+  career: { name: "💼 事业牌阵", count: 5,
+            positions: ["事业现状", "你的优势", "当前挑战", "潜在机遇", "未来趋势"] },
+  fortune:{ name: "💰 财运牌阵", count: 5,
+            positions: ["财务现状", "收入机会", "支出风险", "理财建议", "未来趋势"] },
+  celtic: { name: "✦ 凯尔特十字", count: 10,
             positions: ["1 · 现状", "2 · 挑战", "3 · 目标", "4 · 根基", "5 · 过去",
                         "6 · 未来", "7 · 自我", "8 · 环境", "9 · 希望与恐惧", "10 · 结果"] },
 };

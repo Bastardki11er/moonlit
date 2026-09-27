@@ -18,6 +18,12 @@
   .token-row{display:flex;gap:8px;margin:12px 0}
   .token-row input{flex:1;background:rgba(20,16,40,.8);border:1px solid rgba(212,175,55,.4);
     border-radius:10px;color:#fff;padding:10px 12px;font-size:14px}
+  .token-wrap{position:relative;flex:1;display:flex}
+  .token-wrap input{width:100%;padding-right:44px}
+  .toggle-pw{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;
+    font-size:18px;cursor:pointer;opacity:.7;padding:4px}
+  .toggle-pw:hover{opacity:1}
+  .pw-count{font-size:12px;color:var(--muted);margin:-6px 0 12px}
   h2{color:var(--gold-soft);margin-top:28px}
   .warn{color:#e88}
 </style>
@@ -28,9 +34,13 @@
   <h1>🌙 站长后台</h1>
   <p class="hint">只有你知道密码（.env 里的 ADMIN_TOKEN）。不要把这个页面告诉访客。</p>
   <div class="token-row">
-    <input id="token" type="password" placeholder="输入 ADMIN_TOKEN" />
+    <div class="token-wrap">
+      <input id="token" type="password" placeholder="输入 ADMIN_TOKEN（支持粘贴）" autocomplete="off" />
+      <button id="toggle-pw" class="toggle-pw" title="显示/隐藏密码" type="button">👁</button>
+    </div>
     <button id="load" class="cta" style="margin-top:0">查看数据</button>
   </div>
+  <p id="pw-count" class="pw-count" hidden></p>
   <p id="err" class="warn" hidden></p>
 
   <div id="dashboard" hidden>
@@ -51,6 +61,24 @@
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g,
   (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+// 密码框：显示/隐藏切换 + 字数提示（粘贴、输入都会更新）
+const tokenInput = $("token"), pwCount = $("pw-count");
+const updatePwCount = () => {
+  const n = tokenInput.value.length;
+  pwCount.hidden = n === 0;
+  pwCount.textContent = n === 0 ? "" : `已输入 ${n} 位`;
+};
+tokenInput.addEventListener("input", updatePwCount);
+tokenInput.addEventListener("paste", () => setTimeout(updatePwCount, 0));
+$("toggle-pw").addEventListener("click", () => {
+  const show = tokenInput.type === "password";
+  tokenInput.type = show ? "text" : "password";
+  $("toggle-pw").textContent = show ? "🙈" : "👁";
+  tokenInput.focus();
+});
+// 回车直接查看
+tokenInput.addEventListener("keydown", (e) => { if (e.key === "Enter") $("load").click(); });
 
 $("load").addEventListener("click", async () => {
   const token = $("token").value.trim();
