@@ -29,13 +29,13 @@ async function api(path, opts) {
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || "请求失败，请重试。");
+  if (!res.ok) throw new Error(data.error || t("div.common.request_failed"));
   return data;
 }
 const para = (t) => esc(t).replace(/\n/g, "<br>");
 
 /* ---------------- view tabs ---------------- */
-const VIEW_TITLES = { home: "首页", tarot: "塔罗占卜", bazi: "八字排盘", ziwei: "紫微斗数", astro: "西方星盘", journal: "占卜日记" };
+const VIEW_TITLES = { home: "div.view.home", tarot: "div.view.tarot", bazi: "div.view.bazi", ziwei: "div.view.ziwei", astro: "div.view.astro", journal: "div.view.journal" };
 function switchView(name) {
   document.querySelectorAll("#topnav [data-view]").forEach((b) =>
     b.classList.toggle("active", b.dataset.view === name));
@@ -61,8 +61,8 @@ const shichenOf = (h) => SHICHEN[Math.floor(((h + 1) % 24) / 2)];
 
 
 function hourOptions() {
-  let s = '<option value="">请选择</option>';
-  for (let h = 0; h < 24; h++) s += `<option value="${h}">${h}点（${shichenOf(h)}时）</option>`;
+  let s = `<option value="">${t("div.form.please_select")}</option>`;
+  for (let h = 0; h < 24; h++) s += `<option value="${h}">${t("div.form.hour_opt", { h, sc: shichenOf(h) })}</option>`;
   return s;
 }
 
@@ -71,45 +71,45 @@ function birthFormHTML(p) {
   return `
   <form id="${p}-form" class="birth-form" novalidate>
     <div class="form-row">
-      <label class="form-label">性别</label>
+      <label class="form-label">${t("div.form.gender")}</label>
       <div class="pill-group">
-        <label class="pill"><input type="radio" name="${p}-gender" value="male" checked /><span>男</span></label>
-        <label class="pill"><input type="radio" name="${p}-gender" value="female" /><span>女</span></label>
+        <label class="pill"><input type="radio" name="${p}-gender" value="male" checked /><span>${t("div.form.male")}</span></label>
+        <label class="pill"><input type="radio" name="${p}-gender" value="female" /><span>${t("div.form.female")}</span></label>
       </div>
     </div>
     <div class="form-row">
-      <label class="form-label">出生日期</label>
+      <label class="form-label">${t("div.form.birth_date")}</label>
       <div class="date-inputs">
-        <input id="${p}-year" type="number" min="1900" max="2026" placeholder="年 · 如1995" />
-        <input id="${p}-month" type="number" min="1" max="12" placeholder="月" />
-        <input id="${p}-day" type="number" min="1" max="31" placeholder="日" />
+        <input id="${p}-year" type="number" min="1900" max="2026" placeholder="${t("div.form.year_ph")}" />
+        <input id="${p}-month" type="number" min="1" max="12" placeholder="${t("div.form.month_ph")}" />
+        <input id="${p}-day" type="number" min="1" max="31" placeholder="${t("div.form.day_ph")}" />
       </div>
       <div class="pill-group" style="margin-top:8px">
-        <label class="pill"><input type="radio" name="${p}-cal" value="solar" checked /><span>阳历</span></label>
-        <label class="pill"><input type="radio" name="${p}-cal" value="lunar" /><span>农历</span></label>
-        <label class="pill check"><input type="checkbox" id="${p}-leap" /><span>闰月</span></label>
+        <label class="pill"><input type="radio" name="${p}-cal" value="solar" checked /><span>${t("div.form.solar")}</span></label>
+        <label class="pill"><input type="radio" name="${p}-cal" value="lunar" /><span>${t("div.form.lunar")}</span></label>
+        <label class="pill check"><input type="checkbox" id="${p}-leap" /><span>${t("div.form.leap_month")}</span></label>
       </div>
     </div>
     <div class="form-row">
-      <label class="form-label">出生时间</label>
+      <label class="form-label">${t("div.form.birth_time")}</label>
       <div class="date-inputs">
         <select id="${p}-hour">${hourOptions()}</select>
         <select id="${p}-minute">
-          <option value="">分钟不详</option>
-          <option value="0">00分</option><option value="15">15分</option>
-          <option value="30" selected>30分</option><option value="45">45分</option>
+          <option value="">${t("div.form.minute_unknown")}</option>
+          <option value="0">${t("div.form.minute_opt", { m: "00" })}</option><option value="15">${t("div.form.minute_opt", { m: "15" })}</option>
+          <option value="30" selected>${t("div.form.minute_opt", { m: "30" })}</option><option value="45">${t("div.form.minute_opt", { m: "45" })}</option>
         </select>
       </div>
     </div>
     ${p === "astro" ? `
-    <p class="hint">注：星盘解读以行星星座与相位为主，不含上升点与宫位划分。</p>` : ""}
+    <p class="hint">${t("div.form.astro_note")}</p>` : ""}
     <div class="form-row">
-      <label class="form-label">想重点了解 <span class="hint-inline">（可选）</span></label>
-      <input id="${p}-question" maxlength="200" placeholder="比如：今年事业运如何？" />
+      <label class="form-label">${t("div.form.question_label")} <span class="hint-inline">${t("div.form.optional")}</span></label>
+      <input id="${p}-question" maxlength="200" placeholder="${t("div.form.question_ph")}" />
     </div>
     <p class="form-error" id="${p}-error" hidden></p>
-    <button type="submit" class="cta" id="${p}-submit">🔮 排出命盘</button>
-    <p class="hint">排盘消耗 1 次免费额度 · 仅供娱乐与自我探索</p>
+    <button type="submit" class="cta" id="${p}-submit">${t("div.form.submit")}</button>
+    <p class="hint">${t("div.form.cost_hint")}</p>
   </form>`;
 }
 
@@ -117,15 +117,16 @@ function readBirthForm(p) {
   const err = (m) => { const e = $(p + "-error"); e.textContent = m; e.hidden = false; throw new Error(m); };
   $(p + "-error").hidden = true;
   const gender = (document.querySelector(`input[name="${p}-gender"]:checked`) || {}).value;
-  if (!gender) err("请选择性别。");
+  if (!gender) err(t("div.form.err_gender"));
   const y = parseInt($(p + "-year").value, 10);
   const mo = parseInt($(p + "-month").value, 10);
   const d = parseInt($(p + "-day").value, 10);
   const h = $(p + "-hour").value === "" ? null : parseInt($(p + "-hour").value, 10);
-  if (!y || !mo || !d) err("请填写完整的出生日期。");
-  if (h === null) err("请选择出生时辰（大约几点）。");
+  if (!y || !mo || !d) err(t("div.form.err_date"));
+  if (h === null) err(t("div.form.err_hour"));
   const body = {
     userId: uid(),
+    lang: getLang(),
     gender,
     birthYear: y, birthMonth: mo, birthDay: d, birthHour: h,
     calendarType: (document.querySelector(`input[name="${p}-cal"]:checked`) || {}).value || "solar",
@@ -168,13 +169,13 @@ function initBirthMemory(p) {
     if (prof) {
       bar.hidden = false;
       bar.innerHTML =
-        `🎂 检测到你保存的出生信息 ` +
-        `<button type="button" class="ghost small" id="${p}-fill-profile">⚡ 一键填入</button>`;
+        t("div.birth.saved_prefix") + " " +
+        `<button type="button" class="ghost small" id="${p}-fill-profile">${t("div.birth.fill_btn")}</button>`;
       const btn = $(p + "-fill-profile");
       if (btn) btn.addEventListener("click", () => fillBirthForm(p, prof));
     } else if (!isLoggedIn()) {
       bar.hidden = false;
-      bar.innerHTML = `<span class="hint">👑 登录后可记住出生信息，下次排盘一键填入</span>`;
+      bar.innerHTML = `<span class="hint">${t("div.birth.login_hint")}</span>`;
     } else {
       bar.hidden = true;
     }
@@ -186,7 +187,7 @@ function initBirthMemory(p) {
     label = document.createElement("label");
     label.className = "remember-birth";
     label.id = p + "-remember-label";
-    label.innerHTML = `<input type="checkbox" id="${p}-remember" checked /> 记住这次的出生信息，下次一键填入`;
+    label.innerHTML = `<input type="checkbox" id="${p}-remember" checked /> ${t("div.birth.remember_label")}`;
     form.insertBefore(label, $(p + "-submit"));
   } else if (!isLoggedIn() && label) {
     label.remove();
@@ -237,7 +238,7 @@ $("bazi-form").addEventListener("submit", async (e) => {
   let body;
   try { body = readBirthForm("bazi"); } catch (err) { return; }
   const btn = $("bazi-submit");
-  btn.disabled = true; btn.textContent = "排盘中…";
+  btn.disabled = true; btn.textContent = t("div.form.casting");
   try {
     const data = await api("/api/divination/bazi", { method: "POST", body });
     renderBaziResult(data);
@@ -246,7 +247,7 @@ $("bazi-form").addEventListener("submit", async (e) => {
   } catch (err) {
     const el = $("bazi-error"); el.textContent = err.message; el.hidden = false;
   } finally {
-    btn.disabled = false; btn.textContent = "🔮 排出命盘";
+    btn.disabled = false; btn.textContent = t("div.form.submit");
   }
 });
 
@@ -258,7 +259,7 @@ function renderBaziResult(data) {
   const pillars = chart["四柱"] || [];
   const relations = chart["干支关系"] || [];
   $("bazi-pillars").innerHTML =
-    `<div class="pillars-head">日主 <b>${esc(info["日主"] || "")}</b> · ${esc(info["性别"] || "")}</div>` +
+    `<div class="pillars-head">${t("div.bazi.pillars_head", { dm: esc(info["日主"] || ""), gender: esc(info["性别"] || "") })}</div>` +
     '<div class="pillars-grid">' + pillars.map((pl) => {
       const gz = String(pl["干支"] || "");
       const canggan = (pl["藏干"] || []).map((c) => `${esc(c["天干"])}(${esc(c["十神"])})`).join(" ");
@@ -266,11 +267,11 @@ function renderBaziResult(data) {
         <div class="pillar-title">${esc(pl["柱"])}</div>
         <div class="pillar-gz"><span class="gan">${esc(gz[0] || "")}</span><span class="zhi">${esc(gz[1] || "")}</span></div>
         <div class="pillar-god">${esc(pl["天干十神"] || "")}</div>
-        <div class="pillar-sub">藏干 ${esc(canggan) || "—"}</div>
-        <div class="pillar-sub">${esc(pl["地势"] || "")}${pl["空亡"] === "是" ? ' · <span class="kong">空亡</span>' : ""}</div>
+        <div class="pillar-sub">${t("div.bazi.hidden_stems", { stems: esc(canggan) || "—" })}</div>
+        <div class="pillar-sub">${esc(pl["地势"] || "")}${pl["空亡"] === "是" ? t("div.bazi.kongwang_suffix") : ""}</div>
       </div>`;
     }).join("") + "</div>";
-  $("bazi-relations").textContent = relations.length ? "干支关系：" + relations.join("；") : "";
+  $("bazi-relations").textContent = relations.length ? t("div.bazi.relations", { items: relations.join("；") }) : "";
   $("bazi-reading").innerHTML = para(data.reading);
   $("bazi-result").hidden = false;
   $("bazi-result").scrollIntoView({ behavior: "smooth" });
@@ -281,7 +282,7 @@ $("bazi-again").addEventListener("click", () => {
 });
 $("bazi-journal").addEventListener("click", () => {
   if (!lastBazi) return;
-  openJournalEditor({ mode: "new", link: { kind: "bazi", refId: lastBazi.id, label: `八字排盘 #${lastBazi.id}` } });
+  openJournalEditor({ mode: "new", link: { kind: "bazi", refId: lastBazi.id, label: t("div.journal.link_bazi", { id: lastBazi.id }) } });
 });
 
 /* ---------------- ziwei ---------------- */
@@ -292,7 +293,7 @@ $("ziwei-form").addEventListener("submit", async (e) => {
   let body;
   try { body = readBirthForm("ziwei"); } catch (err) { return; }
   const btn = $("ziwei-submit");
-  btn.disabled = true; btn.textContent = "排盘中…";
+  btn.disabled = true; btn.textContent = t("div.form.casting");
   try {
     const data = await api("/api/divination/ziwei", { method: "POST", body });
     renderZiweiResult(data);
@@ -301,7 +302,7 @@ $("ziwei-form").addEventListener("submit", async (e) => {
   } catch (err) {
     const el = $("ziwei-error"); el.textContent = err.message; el.hidden = false;
   } finally {
-    btn.disabled = false; btn.textContent = "🔮 排出命盘";
+    btn.disabled = false; btn.textContent = t("div.form.submit");
   }
 });
 
@@ -326,8 +327,8 @@ function renderZiweiResult(data) {
   });
   const cellHTML = (branch) => {
     if (!branch) return `<div class="zw-center">
-      <div class="zw-center-title">紫微命盘</div>
-      <div>命主 ${esc(info["命主"] || "")} · 身主 ${esc(info["身主"] || "")}</div>
+      <div class="zw-center-title">${t("div.ziwei.center_title")}</div>
+      <div>${t("div.ziwei.center_lords", { sun: esc(info["命主"] || ""), body: esc(info["身主"] || "") })}</div>
       <div>${esc(info["五行局"] || "")}</div>
       <div class="hint-inline">${esc(info["四柱"] || "")}</div>
     </div>`;
@@ -341,7 +342,7 @@ function renderZiweiResult(data) {
     return `<div class="zw-cell${isSoul ? " soul" : ""}${isBody ? " body" : ""}">
       <div class="zw-palace">${esc(pl["宫位"])}${isSoul ? " ★" : ""}${isBody && !isSoul ? " ◉" : ""}</div>
       <div class="zw-gz">${esc(pl["干支"])}</div>
-      <div class="zw-stars">${majors || '<span class="hint-inline">无主星</span>'}</div>
+      <div class="zw-stars">${majors || `<span class="hint-inline">${t("div.ziwei.no_major")}</span>`}</div>
       <div class="zw-minors">${esc(minors)}</div>
       <div class="zw-range">${esc(pl["大限"] || "")}</div>
     </div>`;
@@ -358,7 +359,7 @@ $("ziwei-again").addEventListener("click", () => {
 });
 $("ziwei-journal").addEventListener("click", () => {
   if (!lastZiwei) return;
-  openJournalEditor({ mode: "new", link: { kind: "ziwei", refId: lastZiwei.id, label: `紫微斗数 #${lastZiwei.id}` } });
+  openJournalEditor({ mode: "new", link: { kind: "ziwei", refId: lastZiwei.id, label: t("div.journal.link_ziwei", { id: lastZiwei.id }) } });
 });
 
 /* ---------------- astro ---------------- */
@@ -369,7 +370,7 @@ $("astro-form").addEventListener("submit", async (e) => {
   let body;
   try { body = readBirthForm("astro"); } catch (err) { return; }
   const btn = $("astro-submit");
-  btn.disabled = true; btn.textContent = "排盘中…";
+  btn.disabled = true; btn.textContent = t("div.form.casting");
   try {
     const data = await api("/api/divination/astro", { method: "POST", body });
     renderAstroResult(data);
@@ -378,7 +379,7 @@ $("astro-form").addEventListener("submit", async (e) => {
   } catch (err) {
     const el = $("astro-error"); el.textContent = err.message; el.hidden = false;
   } finally {
-    btn.disabled = false; btn.textContent = "🔮 排出命盘";
+    btn.disabled = false; btn.textContent = t("div.form.submit");
   }
 });
 
@@ -394,7 +395,7 @@ function renderAstroResult(data) {
   $("astro-points").innerHTML = bodies.map((b) =>
     `<div class="astro-point"><span class="ap-glyph">${PLANET_GLYPH[b.key] || "✦"}</span>
      <span class="ap-name">${esc(b.label)}</span>
-     <span class="hint-inline">${esc(b.sign)} ${esc(b.degInSign)} · ${b.house ? "第" + b.house + "宫" : ""}</span></div>`
+     <span class="hint-inline">${esc(b.sign)} ${esc(b.degInSign)} · ${b.house ? t("div.astro.house_n", { n: b.house }) : ""}</span></div>`
   ).join("");
   $("astro-reading").innerHTML = para(data.reading);
   $("astro-result").hidden = false;
@@ -405,7 +406,7 @@ function drawWheel(svg, extra) {
   const NS = "http://www.w3.org/2000/svg";
   svg.innerHTML = "";
   if (!extra || !extra.bodies || !extra.bodies.length) {
-    svg.innerHTML = '<text x="200" y="200" text-anchor="middle" fill="#8b8fa3">星盘数据缺失</text>';
+    svg.innerHTML = `<text x="200" y="200" text-anchor="middle" fill="#8b8fa3">${t("div.astro.no_data")}</text>`;
     return;
   }
   // 无出生地时没有上升点：以白羊座 0° 为左侧起点绘制，不画 ASC 标记与宫位线
@@ -491,7 +492,7 @@ $("astro-again").addEventListener("click", () => {
 });
 $("astro-journal").addEventListener("click", () => {
   if (!lastAstro) return;
-  openJournalEditor({ mode: "new", link: { kind: "astro", refId: lastAstro.id, label: `西方星盘 #${lastAstro.id}` } });
+  openJournalEditor({ mode: "new", link: { kind: "astro", refId: lastAstro.id, label: t("div.journal.link_astro", { id: lastAstro.id }) } });
 });
 
 /* ---------------- mini history (per kind) ---------------- */
@@ -504,13 +505,13 @@ async function loadMiniHistory(kind) {
     box.innerHTML = items.length ? items.map((it) =>
       `<button class="mini-item" data-id="${it.id}">
         <span class="mini-date">${esc((it.created_at || "").slice(0, 10))}</span>
-        <span class="mini-q">${esc(it.question || "（未留问题）")}</span>
+        <span class="mini-q">${esc(it.question || t("div.history.no_question"))}</span>
       </button>`).join("")
-      : `<p class="hint">还没有${VIEW_TITLES[kind]}记录，排一张试试吧 ✨</p>`;
+      : `<p class="hint">${t("div.history.empty", { view: t(VIEW_TITLES[kind]) })}</p>`;
     box.querySelectorAll(".mini-item").forEach((b) =>
       b.addEventListener("click", () => openDivinationDetail(kind, b.dataset.id)));
   } catch (e) {
-    box.innerHTML = `<p class="hint">加载失败，请重试。</p>`;
+    box.innerHTML = `<p class="hint">${t("div.common.load_failed")}</p>`;
   }
 }
 async function openDivinationDetail(kind, id) {
@@ -525,36 +526,38 @@ async function openDivinationDetail(kind, id) {
 
 /* ---------------- journal ---------------- */
 const MOODS = [["开心", "😊"], ["平静", "😌"], ["迷茫", "😕"], ["难过", "😢"], ["期待", "🤩"], ["感恩", "🙏"]];
-const KIND_LABEL = { note: "随笔", tarot: "塔罗", bazi: "八字", ziwei: "紫微", astro: "星盘" };
+const MOOD_I18N = { "开心": "div.journal.mood_happy", "平静": "div.journal.mood_calm", "迷茫": "div.journal.mood_confused", "难过": "div.journal.mood_sad", "期待": "div.journal.mood_excited", "感恩": "div.journal.mood_grateful" };
+const KIND_LABEL = { note: "div.journal.kind_note", tarot: "div.journal.kind_tarot", bazi: "div.journal.kind_bazi", ziwei: "div.journal.kind_ziwei", astro: "div.journal.kind_astro" };
+const kindLabel = (k) => t(KIND_LABEL[k] || "div.journal.kind_note");
 let journalState = { mode: "new", id: null, link: null, mood: "" };
 
 $("journal-new").addEventListener("click", () => openJournalEditor({ mode: "new" }));
 
 async function loadJournal() {
   const box = $("journal-list");
-  box.innerHTML = `<p class="hint">加载中…</p>`;
+  box.innerHTML = `<p class="hint">${t("div.journal.loading")}</p>`;
   try {
     const data = await api(`/api/journal?userId=${encodeURIComponent(uid())}`);
     const items = data.items || [];
     box.innerHTML = items.length ? items.map((it) =>
       `<button class="journal-card" data-id="${it.id}">
-        <div class="jc-top"><span class="jc-kind">${KIND_LABEL[it.kind] || "随笔"}</span>
+        <div class="jc-top"><span class="jc-kind">${kindLabel(it.kind)}</span>
         ${it.mood ? `<span class="jc-mood">${esc(it.mood)}</span>` : ""}
         <span class="jc-date">${esc((it.created_at || "").slice(0, 10))}</span></div>
         ${it.title ? `<div class="jc-title">${esc(it.title)}</div>` : ""}
         <div class="jc-excerpt">${esc(it.excerpt || "")}${(it.excerpt || "").length >= 120 ? "…" : ""}</div>
       </button>`).join("")
-      : `<div class="journal-empty"><p>📓 还没有日记</p><p class="hint">占卜之后点"记到日记"，或直接写一篇，记录此刻的心情。</p></div>`;
+      : `<div class="journal-empty"><p>${t("div.journal.empty_title")}</p><p class="hint">${t("div.journal.empty_hint")}</p></div>`;
     box.querySelectorAll(".journal-card").forEach((c) =>
       c.addEventListener("click", () => openJournalEntry(c.dataset.id)));
   } catch (e) {
-    box.innerHTML = `<p class="hint">加载失败，请重试。</p>`;
+    box.innerHTML = `<p class="hint">${t("div.common.load_failed")}</p>`;
   }
 }
 
 function renderMoods(selected) {
   $("journal-moods").innerHTML = MOODS.map(([m, e]) =>
-    `<button type="button" class="mood${m === selected ? " sel" : ""}" data-mood="${m}">${e} ${m}</button>`).join("");
+    `<button type="button" class="mood${m === selected ? " sel" : ""}" data-mood="${m}">${e} ${t(MOOD_I18N[m])}</button>`).join("");
   $("journal-moods").querySelectorAll(".mood").forEach((b) =>
     b.addEventListener("click", () => {
       journalState.mood = journalState.mood === b.dataset.mood ? "" : b.dataset.mood;
@@ -565,11 +568,11 @@ function renderMoods(selected) {
 function openJournalEditor(opts) {
   opts = opts || {};
   journalState = { mode: opts.mode || "new", id: opts.id || null, link: opts.link || null, mood: opts.mood || "" };
-  $("journal-modal-title").textContent = journalState.mode === "new" ? "✏️ 写日记" : "📓 日记";
+  $("journal-modal-title").textContent = journalState.mode === "new" ? t("div.journal.editor_new") : t("div.journal.modal_title");
   const li = $("journal-link-info");
   if (journalState.link) {
     li.hidden = false;
-    li.textContent = `关联解读：${journalState.link.label}（保存后自动关联）`;
+    li.textContent = t("div.journal.link_info", { label: journalState.link.label });
   } else li.hidden = true;
   $("journal-title").value = opts.title || "";
   $("journal-content").value = opts.content || "";
@@ -596,11 +599,11 @@ async function openJournalEntry(id) {
   try {
     const e = await api(`/api/journal/${id}?userId=${encodeURIComponent(uid())}`);
     journalState = { mode: "view", id: e.id, link: null, mood: e.mood || "", raw: e.content || "" };
-    $("journal-modal-title").textContent = "📓 日记";
+    $("journal-modal-title").textContent = t("div.journal.modal_title");
     $("journal-link-info").hidden = true;
     $("journal-title").value = e.title || "";
     $("journal-readonly").innerHTML =
-      `<div class="jc-top"><span class="jc-kind">${KIND_LABEL[e.kind] || "随笔"}</span>
+      `<div class="jc-top"><span class="jc-kind">${kindLabel(e.kind)}</span>
        ${e.mood ? `<span class="jc-mood">${esc(e.mood)}</span>` : ""}
        <span class="jc-date">${esc((e.created_at || "").slice(0, 16).replace("T", " "))}</span></div>` +
       para(e.content);
@@ -622,7 +625,7 @@ $("journal-edit").addEventListener("click", () => {
 $("journal-save").addEventListener("click", async () => {
   const content = $("journal-content").value.trim();
   const errBox = $("journal-error");
-  if (!content) { errBox.textContent = "日记内容不能为空。"; errBox.hidden = false; return; }
+  if (!content) { errBox.textContent = t("div.journal.err_empty"); errBox.hidden = false; return; }
   errBox.hidden = true;
   const btn = $("journal-save");
   btn.disabled = true;
@@ -649,7 +652,7 @@ $("journal-save").addEventListener("click", async () => {
   }
 });
 $("journal-delete").addEventListener("click", async () => {
-  if (!journalState.id || !confirm("确定删除这篇日记吗？")) return;
+  if (!journalState.id || !confirm(t("div.journal.confirm_delete"))) return;
   try {
     await api(`/api/journal/${journalState.id}?userId=${encodeURIComponent(uid())}`, { method: "DELETE" });
     $("journal-modal").hidden = true;
@@ -666,8 +669,8 @@ $("journal-from-tarot").addEventListener("click", () => {
   const q = ($("question") && $("question").value.trim()) || "";
   openJournalEditor({
     mode: "new",
-    link: { kind: "tarot", refId: null, label: "塔罗占卜" },
-    content: q ? `问题：${q}\n\n` : "",
+    link: { kind: "tarot", refId: null, label: t("div.journal.link_tarot") },
+    content: q ? t("div.journal.tarot_q", { q }) : "",
   });
 });
 

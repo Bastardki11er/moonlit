@@ -20,6 +20,7 @@ const load = (f) => {
   s.textContent = src;
   window.document.head.appendChild(s);
 };
+load("i18n.js"); load("i18n-dict.js");
 load("cards.js"); load("card-names-zh.js"); load("growth.js"); load("app.js");
 window.document.dispatchEvent(new window.Event("DOMContentLoaded", { bubbles: true }));
 await new Promise((r) => setTimeout(r, 300));

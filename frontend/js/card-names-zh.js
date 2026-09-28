@@ -82,9 +82,14 @@ window.CARD_ZH_NAME = {
   "pentacles-king": "星币国王"
 };
 
-/** 中文牌名：传 card 对象或 id；找不到时回退英文名 */
+/** 中文牌名：传 card 对象或 id；找不到时回退英文名。
+    英文模式（moonlit_lang=en）下直接显示英文牌名。 */
 window.zhCardName = function (cardOrId) {
   var id = typeof cardOrId === "string" ? cardOrId : (cardOrId && cardOrId.id);
+  if (typeof getLang === "function" && getLang() === "en") {
+    if (cardOrId && cardOrId.name) return cardOrId.name;
+    return id || "";
+  }
   if (id && window.CARD_ZH_NAME[id]) return window.CARD_ZH_NAME[id];
   if (cardOrId && cardOrId.name) return cardOrId.name;
   return id || "";

@@ -80,7 +80,7 @@
   window.__onReferralApplied = function (reward) {
     try { localStorage.removeItem("moonlit_ref"); } catch (e) {}
     const n = reward || 1;
-    setTimeout(() => toast(`🎉 受邀成功！你和朋友各得 +${n} 次免费解读`), 1200);
+    setTimeout(() => toast(t("growth.referral.success", { n })), 1200);
   };
 
   /* 登录态变化后重绘增长区（app.js 的 setLoggedIn/setLoggedOut 会调用） */
@@ -106,6 +106,7 @@
      1. 今日黄历
      ============================================================ */
   const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
+  const WEEKDAYS_EN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const SHICHEN = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"];
   const SHICHEN_TIME = ["23–1", "1–3", "3–5", "5–7", "7–9", "9–11", "11–13",
     "13–15", "15–17", "17–19", "19–21", "21–23"];
@@ -119,39 +120,39 @@
       const a = await res.json();
       renderAlmanac(box, a);
     } catch (e) {
-      box.innerHTML = '<p class="hint">黄历加载失败，刷新试试。</p>';
+      box.innerHTML = `<p class="hint">${t("growth.almanac.load_failed")}</p>`;
     }
   }
 
   function renderAlmanac(box, a) {
     const d = new Date(a.date + "T12:00:00");
-    const md = (d.getMonth() + 1) + "月" + d.getDate() + "日";
-    const wd = "星期" + WEEKDAYS[d.getDay()];
+    const md = t("growth.almanac.md", { m: d.getMonth() + 1, d: d.getDate() });
+    const wd = t("growth.almanac.weekday", { w: (getLang() === "en" ? WEEKDAYS_EN : WEEKDAYS)[d.getDay()] });
     const yi = (a.suitable || []).map((x) => `<span class="hl-chip yi">${esc(x)}</span>`).join("");
     const ji = (a.avoid || []).map((x) => `<span class="hl-chip ji">${esc(x)}</span>`).join("");
     const hours = (a.hours || []).map((h, i) => {
       const good = h.luck === "吉";
-      return `<span class="hl-hour ${good ? "good" : "bad"}" title="${esc(h.ganZhi)}${h.god}">${SHICHEN[i]}时<small>${SHICHEN_TIME[i]}</small><b>${good ? "吉" : "凶"}</b></span>`;
+      return `<span class="hl-hour ${good ? "good" : "bad"}" title="${esc(h.ganZhi)}${h.god}">${t("growth.almanac.shichen_label", { s: SHICHEN[i] })}<small>${SHICHEN_TIME[i]}</small><b>${good ? t("growth.almanac.lucky") : t("growth.almanac.unlucky")}</b></span>`;
     }).join("");
     box.innerHTML = `
       <div class="hl-head">
         <div class="hl-date"><b>${esc(md)}</b> ${esc(wd)}</div>
-        <div class="hl-lunar">农历${esc(a.lunar.replace(/^.*年/, ""))} · ${esc(a.ganzhi)}日 · ${esc(a.zodiac)}年</div>
+        <div class="hl-lunar">${t("growth.almanac.lunar", { lunar: esc(a.lunar.replace(/^.*年/, "")), ganzhi: esc(a.ganzhi), zodiac: esc(a.zodiac) })}</div>
       </div>
-      <div class="hl-row"><span class="hl-label">宜</span><div class="hl-chips">${yi || '<span class="hint">—</span>'}</div></div>
-      <div class="hl-row"><span class="hl-label">忌</span><div class="hl-chips">${ji || '<span class="hint">—</span>'}</div></div>
+      <div class="hl-row"><span class="hl-label">${t("growth.almanac.yi")}</span><div class="hl-chips">${yi || '<span class="hint">—</span>'}</div></div>
+      <div class="hl-row"><span class="hl-label">${t("growth.almanac.ji")}</span><div class="hl-chips">${ji || '<span class="hint">—</span>'}</div></div>
       <div class="hl-meta">
-        <span>⚡ 冲煞：${esc(a.chongSha || "—")}</span>
-        <span>💰 财神：${esc((a.directions && a.directions.caiShen) || "—")}</span>
-        <span>😊 喜神：${esc((a.directions && a.directions.xiShen) || "—")}</span>
+        <span>${t("growth.almanac.chongsha", { v: esc(a.chongSha || "—") })}</span>
+        <span>${t("growth.almanac.caishen", { v: esc((a.directions && a.directions.caiShen) || "—") })}</span>
+        <span>${t("growth.almanac.xishen", { v: esc((a.directions && a.directions.xiShen) || "—") })}</span>
       </div>
       <details class="hl-more">
-        <summary>时辰吉凶 · 彭祖百忌</summary>
+        <summary>${t("growth.almanac.hours_title")}</summary>
         <div class="hl-hours">${hours}</div>
-        <p class="hint">彭祖百忌：${esc(a.pengZu || "—")}</p>
-        <p class="hint">胎神：${esc(a.taiShen || "—")} · 值日：${esc(a.dayOfficer)}（${esc(a.tianShen)}${esc(a.tianShenLuck)}）</p>
+        <p class="hint">${t("growth.almanac.pengzu", { v: esc(a.pengZu || "—") })}</p>
+        <p class="hint">${t("growth.almanac.taishen", { ts: esc(a.taiShen || "—"), off: esc(a.dayOfficer), shen: esc(a.tianShen), luck: esc(a.tianShenLuck) })}</p>
       </details>
-      <p class="hl-foot">传统民俗，仅供娱乐 🌙</p>`;
+      <p class="hl-foot">${t("growth.almanac.foot")}</p>`;
   }
 
   /* ============================================================
@@ -165,13 +166,22 @@
     { name: "射手座", icon: "♐", dates: "11.23–12.21" }, { name: "摩羯座", icon: "♑", dates: "12.22–1.19" },
     { name: "水瓶座", icon: "♒", dates: "1.20–2.18" }, { name: "双鱼座", icon: "♓", dates: "2.19–3.20" },
   ];
-  const LUCKY_COLORS = ["蜜桃粉", "月光白", "星空蓝", "曜石黑", "香槟金", "薄荷绿",
-    "樱桃红", "薰衣草紫", "奶油黄", "雾霾灰", "珊瑚橙", "青瓷绿"];
+  // SIGN_KEYS[i] matches SIGNS[i]; zh names stay the storage/rng keys, display goes through t()
+  const SIGN_KEYS = ["growth.horo.sign_aries", "growth.horo.sign_taurus", "growth.horo.sign_gemini",
+    "growth.horo.sign_cancer", "growth.horo.sign_leo", "growth.horo.sign_virgo",
+    "growth.horo.sign_libra", "growth.horo.sign_scorpio", "growth.horo.sign_sagittarius",
+    "growth.horo.sign_capricorn", "growth.horo.sign_aquarius", "growth.horo.sign_pisces"];
+  const signKey = (name) => SIGN_KEYS[SIGNS.findIndex((s) => s.name === name)];
+  const LUCKY_COLORS = ["growth.horo.color_peach", "growth.horo.color_moonlight", "growth.horo.color_starry",
+    "growth.horo.color_obsidian", "growth.horo.color_champagne", "growth.horo.color_mint",
+    "growth.horo.color_cherry", "growth.horo.color_lavender", "growth.horo.color_cream",
+    "growth.horo.color_haze", "growth.horo.color_coral", "growth.horo.color_celadon"];
+  const DIM_KEYS = { "综合": "growth.horo.dim_overall", "爱情": "growth.horo.dim_love", "事业": "growth.horo.dim_career", "财运": "growth.horo.dim_wealth" };
   const FORTUNE_LINES = {
-    综合: ["整体节奏偏顺，适合把拖延的事推进一下。", "今天的直觉很准，跟着感觉走不容易错。", "宜稳不宜急，守住节奏就是赢。", "会有小确幸找上门，记得抬头看看。", "适合复盘和整理，为明天蓄力。", "别被琐事带跑，抓住一件重要的事就好。"],
-    爱情: ["适合主动一点，TA 在等你的信号。", "单身者今天桃花藏在朋友的朋友里。", "有伴者适合一次走心的聊天，别只聊琐事。", "先把自己照顾好，爱情会跟着来。", "旧人旧事别回头，向前看更甜。", "一个小小的关心，比一百句情话管用。"],
-    事业: ["适合推进卡了很久的那件事。", "会议上大胆说出想法，会被看见。", "贵人运在线，别不好意思求助。", "细节决定成败，今天多检查一遍。", "适合学习新技能，吸收特别快。", "保持耐心，大项目正在悄悄成形。"],
-    财运: ["正财运稳，偏财别贪心。", "适合整理账单，会发现省钱空间。", "小额尝试可以，大手笔再等等。", "今天适合谈加薪或接副业线索。", "冲动消费预警，购物车先冷静一晚。", "朋友带来的消息里藏着机会。"],
+    "综合": ["growth.horo.f_overall_1", "growth.horo.f_overall_2", "growth.horo.f_overall_3", "growth.horo.f_overall_4", "growth.horo.f_overall_5", "growth.horo.f_overall_6"],
+    "爱情": ["growth.horo.f_love_1", "growth.horo.f_love_2", "growth.horo.f_love_3", "growth.horo.f_love_4", "growth.horo.f_love_5", "growth.horo.f_love_6"],
+    "事业": ["growth.horo.f_career_1", "growth.horo.f_career_2", "growth.horo.f_career_3", "growth.horo.f_career_4", "growth.horo.f_career_5", "growth.horo.f_career_6"],
+    "财运": ["growth.horo.f_wealth_1", "growth.horo.f_wealth_2", "growth.horo.f_wealth_3", "growth.horo.f_wealth_4", "growth.horo.f_wealth_5", "growth.horo.f_wealth_6"],
   };
   function stars(n) {
     return "★★★★★".slice(0, n) + "☆☆☆☆☆".slice(0, 5 - n);
@@ -184,7 +194,7 @@
     let mate = SIGNS[Math.floor(rng() * 12)];
     if (mate.name === signName) mate = SIGNS[(idx + 5) % 12];
     const dims = ["综合", "爱情", "事业", "财运"].map((k) => ({
-      k, n: score(), line: pick(FORTUNE_LINES[k]),
+      k, n: score(), line: t(pick(FORTUNE_LINES[k])),
     }));
     return {
       dims,
@@ -194,6 +204,7 @@
     };
   }
 
+  let horoBound = false; // the grid click listener must only bind once
   function initHoroscope() {
     const grid = $("horo-grid"), detail = $("horo-detail");
     if (!grid || !detail) return;
@@ -201,9 +212,9 @@
     const saved = localStorage.getItem("moonlit_sign");
     let current = (SIGNS.some((s) => s.name === saved) && saved) || SIGNS[0].name;
 
-    grid.innerHTML = SIGNS.map((s) =>
+    grid.innerHTML = SIGNS.map((s, i) =>
       `<button class="horo-sign${s.name === current ? " active" : ""}" data-sign="${s.name}">
-         <span class="horo-icon">${s.icon}</span><span>${s.name}</span>
+         <span class="horo-icon">${s.icon}</span><span>${t(SIGN_KEYS[i])}</span>
        </button>`).join("");
     const render = (name) => {
       current = name;
@@ -213,25 +224,35 @@
       const f = horoscopeFor(name, dateStr);
       const sign = SIGNS.find((s) => s.name === name);
       detail.innerHTML = `
-        <div class="horo-title">${sign.icon} ${esc(name)} <span class="hint">${sign.dates}</span></div>
+        <div class="horo-title">${sign.icon} ${esc(t(signKey(name)))} <span class="hint">${sign.dates}</span></div>
         ${f.dims.map((d) => `
           <div class="horo-dim">
-            <div class="horo-dim-head"><span>${d.k}</span><span class="horo-stars">${stars(d.n)}</span></div>
+            <div class="horo-dim-head"><span>${t(DIM_KEYS[d.k])}</span><span class="horo-stars">${stars(d.n)}</span></div>
             <p>${esc(d.line)}</p>
           </div>`).join("")}
         <div class="horo-lucky">
-          <span>🎨 幸运色：<b>${esc(f.color)}</b></span>
-          <span>🔢 幸运数字：<b>${f.number}</b></span>
-          <span>💞 速配：<b>${esc(f.mate)}</b></span>
+          <span>${t("growth.horo.lucky_color", { v: esc(t(f.color)) })}</span>
+          <span>${t("growth.horo.lucky_number", { n: f.number })}</span>
+          <span>${t("growth.horo.mate", { v: esc(t(signKey(f.mate))) })}</span>
         </div>
-        <p class="hl-foot">每天更新，仅供娱乐 🌙</p>`;
+        <p class="hl-foot">${t("growth.horo.foot")}</p>`;
     };
-    grid.addEventListener("click", (e) => {
-      const b = e.target.closest(".horo-sign");
-      if (b) render(b.dataset.sign);
-    });
+    if (!horoBound) {
+      grid.addEventListener("click", (e) => {
+        const b = e.target.closest(".horo-sign");
+        if (b) render(b.dataset.sign);
+      });
+      horoBound = true;
+    }
     render(current);
   }
+
+  // Re-render language-dependent dynamic content when the user toggles languages.
+  // (Static labels are handled by data-i18n; these two views render text via JS.)
+  document.addEventListener("moonlit-lang-change", () => {
+    try { initAlmanac(); } catch (e) { /* ignore */ }
+    try { initHoroscope(); } catch (e) { /* ignore */ }
+  });
 
   /* ============================================================
      3. 每日签到（注册用户专享：连续签到是回访福利）
@@ -243,21 +264,21 @@
       const toGo = 7 - (streak % 7 || (checkedIn ? 7 : 0));
       const filled = streak % 7;
       info.textContent = checkedIn
-        ? `已连续签到 ${streak} 天 🎉`
-        : (streak > 0 ? `已连续签到 ${streak} 天，今日还未签到` : "今日还未签到");
+        ? t("growth.checkin.streak_done", { n: streak })
+        : (streak > 0 ? t("growth.checkin.streak_pending", { n: streak }) : t("growth.checkin.not_today"));
       dots.innerHTML = Array.from({ length: 7 }, (_, i) =>
         `<span class="ck-dot${i < filled ? " on" : ""}${i === 6 ? " gift" : ""}"></span>`).join("");
-      dots.title = "再签到 " + toGo + " 天得 +2 次免费解读";
+      dots.title = t("growth.checkin.dots_title", { n: toGo });
       btn.disabled = checkedIn;
-      btn.textContent = checkedIn ? "✅ 今日已签到" : "📅 每日签到";
+      btn.textContent = checkedIn ? t("growth.checkin.done_btn") : t("growth.checkin.btn");
     };
     const paintGuest = () => {
-      info.innerHTML = "👑 <b>登录后签到</b>：连续 7 天得 +2 次免费解读，签到记录云同步不丢失";
+      info.innerHTML = t("growth.checkin.guest_info");
       dots.innerHTML = Array.from({ length: 7 }, (_, i) =>
         `<span class="ck-dot${i === 6 ? " gift" : ""}"></span>`).join("");
-      dots.title = "登录后签到，满 7 天得 +2 次免费解读";
+      dots.title = t("growth.checkin.guest_dots");
       btn.disabled = false;
-      btn.textContent = "👑 登录后签到";
+      btn.textContent = t("growth.checkin.guest_btn");
     };
     const refresh = async () => {
       if (!isMember()) { paintGuest(); return; }
@@ -270,7 +291,7 @@
     await refresh();
     btn.addEventListener("click", async () => {
       if (!isMember()) {
-        needLogin("登录后签到，连续 7 天得免费解读 👑");
+        needLogin(t("growth.checkin.need_login"));
         return;
       }
       btn.disabled = true;
@@ -278,17 +299,17 @@
         const res = await authedFetch("/api/checkin", { method: "POST" });
         if (res.status === 401) {
           const d = await res.json().catch(() => ({}));
-          needLogin(d.error || "请先登录");
+          needLogin(d.error || t("growth.checkin.login_required"));
           btn.disabled = false;
           await refresh();
           return;
         }
         const r = await res.json();
         paint(r.streak || 0, true);
-        if (r.rewardGranted) toast(`🎉 连续签到 7 天！+${r.rewardAmount || 1} 次免费解读已到账`);
-        else if (!r.duplicate) toast(`签到成功！已连续 ${r.streak} 天`);
+        if (r.rewardGranted) toast(t("growth.checkin.reward_toast", { n: r.rewardAmount || 1 }));
+        else if (!r.duplicate) toast(t("growth.checkin.success_toast", { n: r.streak }));
       } catch (e) {
-        toast("签到失败，稍后再试");
+        toast(t("growth.checkin.fail_toast"));
         btn.disabled = false;
       }
     });
@@ -305,22 +326,22 @@
     const paintDesc = () => {
       if (!descEl) return;
       descEl.innerHTML = isMember()
-        ? `把月光塔罗分享给朋友 —— 朋友通过你的链接进来，你们 <b>各得 +2 次</b>免费解读；每天分享最多再领 <b>3 次</b> 👑。`
-        : `把月光塔罗分享给朋友 —— 朋友通过你的链接进来，你们 <b>各得 +1 次</b>免费解读；<b>登录后</b>邀请各得 <b>+2 次</b>、每天分享最多再领 <b>3 次</b> 👑。`;
+        ? t("growth.share.desc_member")
+        : t("growth.share.desc_guest");
     };
     const paint = async () => {
       paintDesc();
       if (!isMember()) {
         statusEl.innerHTML =
-          `👑 <b>登录后分享赚次数</b>：每天最多 3 次免费解读，注册只要 10 秒` +
-          `<br><span class="hint">奖励在免费额度用完后自动抵扣，不会过期</span>`;
+          t("growth.share.guest_status_main") +
+          `<br><span class="hint">${t("growth.share.guest_status_hint")}</span>`;
         return null;
       }
       try {
         const s = await (await authedFetch("/api/share-status")).json();
         statusEl.innerHTML =
-          `🎟 我的奖励次数：<b>${s.bonus || 0}</b> · 今日还可领取：<b>${s.grantsLeft || 0}</b> 次` +
-          `<br><span class="hint">奖励在免费额度用完后自动抵扣，不会过期 · 👑 会员每天可领 3 次</span>`;
+          t("growth.share.status_main", { bonus: s.bonus || 0, left: s.grantsLeft || 0 }) +
+          `<br><span class="hint">${t("growth.share.status_hint")}</span>`;
         return s;
       } catch (e) { return null; }
     };
@@ -332,30 +353,30 @@
         const res = await authedFetch("/api/share-grant", { method: "POST" });
         if (res.status === 401) {
           const d = await res.json().catch(() => ({}));
-          needLogin(d.error || "登录后分享可领取奖励次数 👑");
+          needLogin(d.error || t("growth.share.need_login"));
           return;
         }
         const r = await res.json();
         await paint();
-        if (r.ok) toast("🎉 +1 次免费解读已到账");
-        else toast("今日领取次数已用完，明天再来");
-      } catch (e) { toast("领取失败，稍后再试"); }
+        if (r.ok) toast(t("growth.share.granted_toast"));
+        else toast(t("growth.share.exhausted_toast"));
+      } catch (e) { toast(t("growth.share.fail_toast")); }
     };
 
     $("share-btn").addEventListener("click", async () => {
       const uid = (typeof moonlitUserId !== "undefined" && moonlitUserId)
         || localStorage.getItem("moonlit_uid") || "";
       const link = location.origin + "/?ref=" + uid;
-      const data = { title: "月光塔罗", text: "来月光塔罗抽一张牌，看看今晚的月光想告诉你什么 🌙", url: link };
+      const data = { title: t("growth.share.share_title"), text: t("growth.share.share_text"), url: link };
       if (navigator.share) {
         try { await navigator.share(data); grantOnce(); }
         catch (e) { /* 用户取消分享，不打扰 */ }
       } else {
         try {
           await navigator.clipboard.writeText(data.text + " " + link);
-          toast("链接已复制，发给朋友吧");
+          toast(t("growth.share.copied_toast"));
           grantOnce();
-        } catch (e) { toast("复制失败，长按复制链接"); }
+        } catch (e) { toast(t("growth.share.copy_fail_toast")); }
       }
     });
 
@@ -366,8 +387,8 @@
       $("invite-link-text").textContent = link;
       try {
         await navigator.clipboard.writeText(link);
-        toast("邀请链接已复制 📋");
-      } catch (e) { toast("复制失败，请手动复制下方链接"); }
+        toast(t("growth.share.invite_copied"));
+      } catch (e) { toast(t("growth.share.invite_copy_fail")); }
     });
   }
 
@@ -375,12 +396,12 @@
      5. 新手引导：第一次来，问一句"想为什么而来"
      ============================================================ */
   const ONBOARD_INTENTS = [
-    { icon: "💕", label: "感情桃花", q: "我最近的感情运势如何？" },
-    { icon: "💼", label: "事业工作", q: "我接下来的事业运怎么样？" },
-    { icon: "💰", label: "财运", q: "我近期的财运如何？" },
-    { icon: "📚", label: "学业考试", q: "我最近的学业/考试运怎么样？" },
-    { icon: "🪐", label: "看看命盘", view: "bazi" },
-    { icon: "👀", label: "随便逛逛", view: null },
+    { icon: "💕", labelKey: "growth.onboard.intent_love", qKey: "growth.onboard.q_love" },
+    { icon: "💼", labelKey: "growth.onboard.intent_career", qKey: "growth.onboard.q_career" },
+    { icon: "💰", labelKey: "growth.onboard.intent_wealth", qKey: "growth.onboard.q_wealth" },
+    { icon: "📚", labelKey: "growth.onboard.intent_study", qKey: "growth.onboard.q_study" },
+    { icon: "🪐", labelKey: "growth.onboard.intent_chart", view: "bazi" },
+    { icon: "👀", labelKey: "growth.onboard.intent_browse", view: null },
   ];
   function initOnboarding() {
     try {
@@ -392,11 +413,11 @@
     ov.innerHTML = `
       <div class="onboard-card">
         <div class="onboard-moon">🌙</div>
-        <h3>今晚，想为什么而来？</h3>
-        <p class="hint">选一个，月光带你直达</p>
+        <h3>${t("growth.onboard.title")}</h3>
+        <p class="hint">${t("growth.onboard.sub")}</p>
         <div class="onboard-grid">
           ${ONBOARD_INTENTS.map((o, i) =>
-            `<button class="onboard-opt" data-i="${i}"><span>${o.icon}</span>${o.label}</button>`).join("")}
+            `<button class="onboard-opt" data-i="${i}"><span>${o.icon}</span>${t(o.labelKey)}</button>`).join("")}
         </div>
       </div>`;
     document.body.appendChild(ov);
@@ -411,9 +432,9 @@
       done();
       if (o.view) {
         switchView(o.view);
-      } else if (o.q) {
+      } else if (o.qKey) {
         const q = $("question");
-        if (q && !q.value) q.value = o.q;
+        if (q && !q.value) q.value = t(o.qKey);
         switchView("tarot");
         setTimeout(() => { const t = $("step-question"); if (t && t.scrollIntoView) t.scrollIntoView({ behavior: "smooth" }); }, 80);
       }

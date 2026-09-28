@@ -53,6 +53,8 @@ async function main() {
     s.textContent = src;
     window.document.head.appendChild(s);
   };
+  load("i18n.js");
+  load("i18n-dict.js");
   load("cards.js");
   load("card-names-zh.js");
   load("growth.js");

@@ -192,6 +192,9 @@ async function init() {
   try { db.exec("ALTER TABLE users ADD COLUMN account_id INTEGER"); } catch (e) { /* already there */ }
   // Migration for the share-to-earn bonus readings (2026-09-26).
   try { db.exec("ALTER TABLE users ADD COLUMN bonus_readings INTEGER NOT NULL DEFAULT 0"); } catch (e) { /* already there */ }
+  // Migration for the i18n language switch (2026-09-28): stable spread key
+  // so history/follow-ups can render the spread name in either language.
+  try { db.exec("ALTER TABLE readings ADD COLUMN spread_key TEXT"); } catch (e) { /* already there */ }
   // Migration for referral attribution (2026-09-26).
   try { db.exec("ALTER TABLE users ADD COLUMN referred_by TEXT"); } catch (e) { /* already there */ }
   // Migration for member birth profiles (2026-09-26). CREATE TABLE IF NOT
@@ -439,18 +442,18 @@ function saveBirthProfile(userId, p) {
   persist();
 }
 
-function saveReading(userId, { question, spread, cards, readingText }) {
+function saveReading(userId, { question, spread, spreadKey, cards, readingText }) {
   run(
-    `INSERT INTO readings (user_id, question, spread, cards_json, reading_text, created_at)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [userId, question, spread || "", JSON.stringify(cards), readingText, now()]
+    `INSERT INTO readings (user_id, question, spread, spread_key, cards_json, reading_text, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [userId, question, spread || "", spreadKey || null, JSON.stringify(cards), readingText, now()]
   );
   return get("SELECT seq AS id FROM sqlite_sequence WHERE name = 'readings'").id;
 }
 
 function getReadings(userId, limit = 20) {
   return all(
-    `SELECT id, question, spread, cards_json, created_at
+    `SELECT id, question, spread, spread_key, cards_json, created_at
      FROM readings WHERE user_id = ? ORDER BY id DESC LIMIT ?`,
     [userId, limit]
   ).map((r) => ({ ...r, cards: JSON.parse(r.cards_json), cards_json: undefined }));

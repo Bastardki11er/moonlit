@@ -57,6 +57,15 @@ body {
 
 /* ---------------- header / hero ---------------- */
 .site-header { position: relative; z-index: 2; }
+.lang-toggle {
+  position: absolute; top: .8rem; right: .8rem; z-index: 101;
+  background: rgba(20,16,40,.7); border: 1px solid rgba(212,175,55,.4); color: var(--gold-soft);
+  border-radius: 999px; padding: .35rem .9rem; font-size: .8rem; cursor: pointer;
+  font-family: Arial, sans-serif; letter-spacing: 1px;
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  transition: all .2s ease;
+}
+.lang-toggle:hover { border-color: var(--gold); color: var(--gold); box-shadow: 0 0 12px rgba(212,175,55,.3); }
 .hero { text-align: center; padding: 2.6rem 1rem 1.2rem; position: relative; overflow: hidden; }
 .moon {
   width: 92px; height: 92px; margin: 0 auto .9rem; border-radius: 50%;

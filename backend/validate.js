@@ -24,6 +24,20 @@ function isValidUUID(id) {
 
 const MAX_QUESTION = 500;
 const VALID_CARD_COUNTS = [1, 3, 5, 10]; // 10 = Celtic Cross
+const VALID_SPREAD_KEYS = ["single", "love", "career", "fortune", "celtic"];
+const VALID_LANGS = ["zh", "en"];
+
+/* Language requested by the client ("zh" default). Only ever "zh"|"en". */
+function cleanLang(body) {
+  const l = body && typeof body.lang === "string" ? body.lang.trim().toLowerCase() : "";
+  return VALID_LANGS.includes(l) ? l : "zh";
+}
+
+/* Spread key (stable id like "love"); null when missing/invalid. */
+function cleanSpreadKey(body) {
+  const k = body && typeof body.spreadKey === "string" ? body.spreadKey.trim() : "";
+  return VALID_SPREAD_KEYS.includes(k) ? k : null;
+}
 
 /* Validate a POST /api/reading body.
    Returns { ok: true, clean } or { ok: false, error }. */
@@ -62,10 +76,16 @@ function validateReadingInput(body) {
       position: typeof c.position === "string" ? c.position.slice(0, 40) : "",
       orientation: c.orientation,
       meaning: c.orientation === "reversed" ? def.reversed : def.upright,
+      meaning_en: c.orientation === "reversed"
+        ? (def.reversed_en || def.reversed)
+        : (def.upright_en || def.upright),
     });
   }
 
-  return { ok: true, clean: { question: q, spread: spreadName, cards: cleanCards } };
+  return { ok: true, clean: {
+    question: q, spread: spreadName, spreadKey: cleanSpreadKey(body),
+    lang: cleanLang(body), cards: cleanCards,
+  } };
 }
 
 /* Validate a POST /api/reading/followup body.
@@ -159,4 +179,5 @@ function validateJournalInput(body) {
 }
 
 module.exports = { isValidUUID, validateReadingInput, validateFollowupInput, MAX_QUESTION,
-  validateBirthInput, validateJournalInput, JOURNAL_MOODS };
+  validateBirthInput, validateJournalInput, JOURNAL_MOODS,
+  cleanLang, cleanSpreadKey, VALID_SPREAD_KEYS };

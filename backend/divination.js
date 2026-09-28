@@ -58,8 +58,32 @@ return { json: toAstrologyJson(chart), text: toAstrologyText(chart), extra };
 
 const NO_MEDICAL = "不要给医疗、法律、投资方面的具体建议，只做性格与运势层面的参考。";
 
-function buildDivinationPrompt(kind, chartText, question) {
-const q = question? `用户还想特别了解：${question}\n`: "";
+function buildDivinationPrompt(kind, chartText, question, lang) {
+const en = lang === "en";
+const q = question ? (en ? `The user especially wants to know: ${question}\n` : `用户还想特别了解：${question}\n`) : "";
+if (en) {
+const roleLine = kind === "bazi"
+? "You are a master of Bazi (Four Pillars of Destiny) Chinese astrology, explaining the chart below in warm, plain English."
+: kind === "ziwei"
+? "You are a master of Zi Wei Dou Shu (Purple Star Astrology), explaining the chart below in warm, plain English."
+: "You are an astrologer specializing in Western astrology, explaining the natal chart below in warm, plain English.";
+const sections = kind === "ziwei"
+? "personality & talents / career & wealth / love & marriage / major periods & yearly fortune"
+: kind === "astro"
+? "personality & talents / career & wealth / love & relationships / upcoming transits"
+: "personality & talents / career & wealth / love & marriage / recent years' fortune";
+return `${roleLine}
+${q}Requirements:
+1. Open with one sentence on the chart's defining traits.
+2. Four sections — ${sections} — 80-120 words each.
+3. Warm, natural voice, like a real human practitioner talking — not a dry glossary of terms.
+4. Keep the original Chinese technical terms (e.g. 十神 names, 干支, star names like 紫微) and add a short English gloss in parentheses the first time each appears.
+5. Total about 400-550 words, in English.
+6. Never reveal you are an AI; speak as the practitioner. No medical, legal, or investment advice — personality and fortune reference only.
+
+Chart:
+${chartText}`;
+}
 if (kind === "bazi") {
 return `你是一位精通八字命理的老师傅，用温暖、通俗的中文为用户解读下面这份八字命盘。
 ${q}要求：
@@ -103,7 +127,7 @@ ${chartText}`;
 /* Build the full prompt for a divination reading, optionally enriched
 with few-shot examples from the open ziwei sample dataset (RAG).
 Returns { prompt, chartJson} — chartJson is stored for display. */
-function buildReading(kind, input, question) {
+function buildReading(kind, input, question, lang) {
 let calc;
 if (kind === "bazi") calc = calcBazi(input);
 else if (kind === "ziwei") calc = calcZiwei(input);
@@ -114,12 +138,13 @@ let ragNote = "";
 if (kind === "ziwei") {
 const examples = findZiweiExamples(calc.json, 2);
 if (examples.length) {
-ragNote =
-"\n\n下面是命宫主星相似的命例解读片段，供你参考行文与断语风格（不要照搬）：\n" +
+ragNote = (lang === "en"
+? "\n\nBelow are reading excerpts from charts with similar palace star combinations, for style reference only (do not copy):\n"
+: "\n\n下面是命宫主星相似的命例解读片段，供你参考行文与断语风格（不要照搬）：\n") +
 examples.map((e, i) => `${e}`).join("\n");
 }
 }
-const prompt = buildDivinationPrompt(kind, chartText + ragNote, question);
+const prompt = buildDivinationPrompt(kind, chartText + ragNote, question, lang);
 return { prompt, chartJson: calc.json, chartText, extra: calc.extra || null};
 }
 

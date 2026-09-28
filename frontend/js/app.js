@@ -53,9 +53,9 @@ function renderAuthButton() {
   if (moonlitEmail) {
     const short = moonlitEmail.length > 14 ? moonlitEmail.slice(0, 12) + "…" : moonlitEmail;
     btn.textContent = "👤 " + short;
-    btn.title = moonlitEmail + "（已登录，点击管理）";
+    btn.title = t("app.auth.title_logged_in", { email: moonlitEmail });
   } else {
-    btn.textContent = "👤 登录 / 注册";
+    btn.textContent = t("app.auth.login_register");
     btn.title = "";
   }
 }
@@ -151,7 +151,7 @@ document.querySelectorAll(".spread-btn").forEach((btn) => {
 function startSpread(spreadKey) {
   const q = $("question").value.trim();
   if (!q) {
-    alert("请先写下你的问题 🔮");
+    alert(t("app.draw.ask_question_first"));
     $("question").focus();
     document.querySelectorAll(".spread-btn").forEach((b) => b.classList.remove("selected"));
     return;
@@ -162,7 +162,7 @@ function startSpread(spreadKey) {
   state.drawn = [];
 
   const spread = SPREADS[spreadKey];
-  $("draw-count").textContent = spread.count === 1 ? "1 张牌" : spread.count + " 张牌";
+  $("draw-count").textContent = spread.count === 1 ? t("app.draw.one_card") : t("app.draw.count", { n: spread.count });
   $("drawn").innerHTML = "";
   // Celtic Cross gets the classic cross layout (CSS grid); others use flex rows.
   $("drawn").classList.toggle("celtic", spreadKey === "celtic");
@@ -176,18 +176,18 @@ function startSpread(spreadKey) {
   const deckEl = $("deck");
   deckEl.classList.remove("inviting");
   deckEl.classList.add("shuffling");
-  $("draw-hint").textContent = "正在洗牌… 🔮";
+  $("draw-hint").textContent = t("app.draw.shuffling");
   $("draw-progress").textContent = "";
   seedMotes();
   setTimeout(() => {
     deckEl.classList.remove("shuffling");
     deckEl.classList.add("inviting");
-    $("draw-hint").textContent = "点击牌堆抽牌，点击每张牌翻面。";
+    $("draw-hint").textContent = t("app.draw.hint");
   }, 1000);
 }
 
 function updateDeckCount() {
-  $("deck-left").textContent = "还剩 " + state.deck.length + " 张";
+  $("deck-left").textContent = t("app.draw.deck_left", { n: state.deck.length });
 }
 
 // ---------- step 3: draw & reveal ----------
@@ -201,7 +201,7 @@ $("deck").addEventListener("click", () => {
   state.drawn.push({ card, reversed, position });
   updateDeckCount();
   renderDrawnCard(card, reversed, position, state.drawn.length - 1);
-  $("draw-progress").textContent = "（" + state.drawn.length + "/" + spread.count + "）";
+  $("draw-progress").textContent = t("app.draw.progress", { a: state.drawn.length, b: spread.count });
 
   if (state.drawn.length === spread.count) {
     $("deck").classList.remove("inviting");
@@ -225,14 +225,14 @@ function renderDrawnCard(card, reversed, position, index) {
   front.appendChild(art);
   const cap = el("div", "card-caption");
   cap.appendChild(el("div", "cname", zhCardName(card)));
-  cap.appendChild(el("div", "orientation", reversed ? "逆位" : "正位"));
+  cap.appendChild(el("div", "orientation", t(reversed ? "app.draw.reversed" : "app.draw.upright")));
   front.appendChild(cap);
   inner.appendChild(back);
   inner.appendChild(front);
   wrap.appendChild(inner);
-  wrap.title = position + " — 点击翻牌";
+  wrap.title = t("app.draw.flip_title", { position: spreadPosName(state.spreadKey, position) });
   slot.appendChild(wrap);
-  slot.appendChild(el("div", "pos-tag", position));
+  slot.appendChild(el("div", "pos-tag", spreadPosName(state.spreadKey, position)));
   // Celtic Cross: each slot gets a grid cell; card 2 lies crossed over card 1.
   if (state.spreadKey === "celtic") {
     slot.classList.add("cc" + (index + 1));
@@ -317,11 +317,11 @@ function showReadingStep() {
   state.drawn.forEach((d) => {
     const name = zhCardName(d.card);
     const rev = !!d.reversed;
-    const cap = (d.position ? d.position + " · " : "") + name + (rev ? "（逆位）" : "（正位）");
+    const cap = (d.position ? d.position + " · " : "") + name + t(rev ? "app.draw.cap_reversed" : "app.draw.cap_upright");
     const wrap = el("div", "result-card");
     wrap.appendChild(cardThumb(d.card.id, cap, rev));
     const label = el("div", "result-card-name",
-      escapeHtml(d.position) + "<br>" + escapeHtml(name) + (rev ? " ⟲逆位" : ""));
+      escapeHtml(d.position) + "<br>" + escapeHtml(name) + (rev ? " " + t("app.reading.reversed_tag") : ""));
     wrap.appendChild(label);
     box.appendChild(wrap);
   });
@@ -340,7 +340,7 @@ $("get-reading").addEventListener("click", async () => {
   const box = $("reading");
   box.hidden = false;
   box.classList.add("loading");
-  box.textContent = "牌正在诉说… 🔮";
+  box.textContent = t("app.reading.loading");
 
   try {
     const result = DEMO_MODE ? { text: makeSampleReading() } : await fetchRealReading();
@@ -362,10 +362,10 @@ $("get-reading").addEventListener("click", async () => {
       box.hidden = true;
       $("paywall").hidden = false;
       btn.disabled = false;
-      btn.textContent = "✨ 获取解读";
+      btn.textContent = t("app.reading.get_reading");
       return;
     }
-    box.textContent = "连接失败，请重试。";
+    box.textContent = t("app.reading.error_connection");
     btn.disabled = false;
   }
 });
@@ -378,6 +378,8 @@ async function fetchRealReading() {
       userId: moonlitUserId,
       question: state.question,
       spread: SPREADS[state.spreadKey].name,
+      spreadKey: state.spreadKey,
+      lang: getLang(),
       cards: state.drawn.map((d) => ({
         position: d.position,
         id: d.card.id,
@@ -409,22 +411,18 @@ async function fetchRealReading() {
 function makeSampleReading() {
   const q = state.question;
   const lines = [];
-  lines.push("你的问题：「" + q + "」\n");
-  lines.push("牌这样说：\n");
+  lines.push(t("app.reading.sample_question", { q }));
+  lines.push(t("app.reading.sample_cards_say"));
   state.drawn.forEach((d) => {
     const meaning = d.reversed ? d.card.reversed : d.card.upright;
-    lines.push(
-      d.position + " — " + zhCardName(d.card) +
-      (d.reversed ? "（逆位）" : "") +
-      "：" + meaning
-    );
+    lines.push(t("app.reading.sample_card_line", {
+      position: d.position,
+      name: zhCardName(d.card),
+      rev: d.reversed ? t("app.draw.cap_reversed") : "",
+      meaning,
+    }));
   });
-  lines.push(
-    "\n把这些牌放在一起，一个主题浮现出来：" +
-    "留意那些在你的处境中反复出现的东西，" +
-    "相信你已经感受到的信号，" +
-    "这周先踏出一小步。牌为你开门 — 路要你自己走。✨"
-  );
+  lines.push(t("app.reading.sample_closing"));
   return lines.join("\n");
 }
 
@@ -432,18 +430,18 @@ function updateReadingNote(freeLeft) {
   const note = $("reading-note");
   note.hidden = false;
   note.textContent = DEMO_MODE
-    ? "示例解读（演示模式）。"
-    : "月光塔罗根据你的问题和牌面生成的解读。" +
+    ? t("app.reading.note_demo")
+    : t("app.reading.note_generated") +
       (typeof freeLeft === "number" && freeLeft <= 1
-        ? "（今天还剩 " + freeLeft + " 次免费解读）" : "");
+        ? t("app.reading.note_free_left", { n: freeLeft }) : "");
 }
 
 // ---------- follow-up questions ----------
 function appendFollowup(q, a) {
   const thread = $("followup-thread");
-  thread.appendChild(el("div", "fu-q", "<b>你问：</b>" + escapeHtml(q)));
+  thread.appendChild(el("div", "fu-q", t("app.followup.you_asked") + escapeHtml(q)));
   thread.appendChild(el("div", "fu-a",
-    "<b>月光：</b>" + escapeHtml(a).replace(/\n/g, "<br>")));
+    t("app.followup.moonlit_says") + escapeHtml(a).replace(/\n/g, "<br>")));
   thread.lastChild.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
@@ -452,9 +450,9 @@ function paintFollowupHint() {
   const h = $("followup-hint");
   if (!h) return;
   if (window.__moonlitMember && window.__followupFree) {
-    h.textContent = "👑 会员今日首次追问免费，月光会结合你的牌面回答。";
+    h.textContent = t("app.followup.hint_member_free");
   } else {
-    h.textContent = "每次追问消耗 1 次免费额度，月光会结合你的牌面回答。";
+    h.textContent = t("app.followup.hint_cost");
   }
 }
 
@@ -464,7 +462,7 @@ $("followup-send").addEventListener("click", async () => {
   if (!q) { input.focus(); return; }
 
   if (DEMO_MODE) {
-    appendFollowup(q, "（演示模式）追问功能已就绪：正式版里，我会结合你的牌面和之前的解读来回答这个问题。");
+    appendFollowup(q, t("app.followup.demo_answer"));
     input.value = "";
     return;
   }
@@ -473,7 +471,7 @@ $("followup-send").addEventListener("click", async () => {
   const btn = $("followup-send");
   btn.disabled = true;
   const old = btn.textContent;
-  btn.textContent = "思考中…";
+  btn.textContent = t("app.followup.thinking");
   try {
     const res = await fetch("/api/reading/followup", {
       method: "POST",
@@ -482,6 +480,7 @@ $("followup-send").addEventListener("click", async () => {
         userId: moonlitUserId,
         readingId: currentReadingId,
         question: q,
+        lang: getLang(),
       }),
     });
     if (res.status === 402) {
@@ -501,7 +500,7 @@ $("followup-send").addEventListener("click", async () => {
     updateReadingNote(data.freeLeft);
     updateHistoryBadge();
   } catch (err) {
-    alert(err.message || "连接失败，请重试。");
+    alert(err.message || t("app.reading.error_connection"));
   }
   btn.disabled = false;
   btn.textContent = old;
@@ -539,7 +538,7 @@ let payTimer = null;
 async function startPay(method) {
   const box = $("qr-box");
   box.hidden = false;
-  $("qr").innerHTML = "<p class='hint'>正在创建订单…</p>";
+  $("qr").innerHTML = t("app.pay.creating_order");
   try {
     const res = await fetch("/api/checkout", {
       method: "POST",
@@ -568,7 +567,7 @@ function renderQr(qr, raw) {
   } else if (qr && qr.type === "data") {
     const a = document.createElement("a");
     a.href = qr.value;
-    a.textContent = "点击打开支付";
+    a.textContent = t("app.pay.open_payment");
     a.style.cssText = "color:#d4af37;word-break:break-all";
     el.appendChild(a);
   } else {
@@ -594,7 +593,7 @@ async function pollOrder(orderId) {
       if (d.paid) {
         clearInterval(payTimer);
         $("pay-status").textContent = "✅";
-        alert("✨ 支付成功！这是你的解读。");
+        alert(t("app.pay.success"));
         $("paywall").hidden = true;
         $("qr-box").hidden = true;
         $("get-reading").click(); // run the blocked reading now
@@ -608,18 +607,18 @@ $("pay-alipay").addEventListener("click", () => startPay("alipay"));
 
 /* ---------- 牌鉴 gallery: browse all 78 cards ---------- */
 const GALLERY_GROUPS = [
-  { key: "major", title: "大阿卡纳 · 22" },
-  { key: "wands", title: "权杖 · 14" },
-  { key: "cups", title: "圣杯 · 14" },
-  { key: "swords", title: "宝剑 · 14" },
-  { key: "pentacles", title: "星币 · 14" },
+  { key: "major" },
+  { key: "wands" },
+  { key: "cups" },
+  { key: "swords" },
+  { key: "pentacles" },
 ];
 
 function buildGallery() {
   const grid = $("gallery-grid");
   if (!grid) return;
   GALLERY_GROUPS.forEach((g) => {
-    grid.appendChild(el("h3", "gallery-group", g.title));
+    grid.appendChild(el("h3", "gallery-group", t("app.gallery.group_" + g.key)));
     const row = el("div", "gallery-row");
     TAROT_CARDS
       .filter((c) => (c.arcana === "major" ? "major" : c.suit) === g.key)
@@ -638,18 +637,46 @@ function buildGallery() {
   });
 }
 
+// i18n: suit display name, resolved at display time so the language toggle works
+function suitName(suit) {
+  const key = "app.cards.suit_" + suit;
+  const v = t(key);
+  return (v && v !== key) ? v : (SUIT_ZH[suit] || suit);
+}
+
+// i18n: spread position name. The wire/storage format is the Chinese string;
+// in English mode we map it back through the spread's position list.
+function spreadPosName(spreadKey, zhPos) {
+  if (getLang() !== "en" || !zhPos) return zhPos || "";
+  const arr = (SPREADS[spreadKey] || {}).positions || [];
+  const i = arr.indexOf(zhPos);
+  if (i < 0) return zhPos;
+  const v = t("app.spread." + spreadKey + ".position_" + i);
+  return v || zhPos;
+}
+
+// i18n: spread display name for history rows (new rows carry spread_key;
+// very old rows only have the Chinese name stored in `spread`).
+function spreadDisplayName(r) {
+  if (r.spread_key) {
+    const v = t("html.spread." + r.spread_key + ".name");
+    if (v) return v;
+  }
+  return r.spread || "";
+}
+
 function openCardModal(c) {
   const art = $("modal-art");
   art.src = "img/cards/" + c.id + ".webp";
   art.alt = zhCardName(c);
   art.classList.add("zoomable");
-  art.title = "点击放大查看";
+  art.title = t("app.cards.zoom_title");
   art.onclick = () => openLightbox(art.src, zhCardName(c));
   $("modal-name").textContent = zhCardName(c);
   $("modal-arcana").textContent =
-    c.arcana === "major" ? "大阿卡纳" : "小阿卡纳 · " + (SUIT_ZH[c.suit] || c.suit);
-  $("modal-up").textContent = "正位 · " + c.upright;
-  $("modal-rev").textContent = "逆位 · " + c.reversed;
+    c.arcana === "major" ? t("app.cards.arcana_major") : t("app.cards.arcana_minor", { suit: suitName(c.suit) });
+  $("modal-up").textContent = t("app.cards.upright_desc", { text: cardMeaning(c, "upright") });
+  $("modal-rev").textContent = t("app.cards.reversed_desc", { text: cardMeaning(c, "reversed") });
   $("modal-detail-link").href = "cards/" + c.id + ".html";
   $("card-modal").hidden = false;
   document.body.style.overflow = "hidden";
@@ -693,7 +720,7 @@ function cardThumb(cardId, caption, reversed) {
   img.alt = caption || "";
   img.loading = "lazy";
   img.className = "zoomable" + (reversed ? " reversed" : "");
-  img.title = "点击放大查看";
+  img.title = t("app.cards.zoom_title");
   img.addEventListener("click", () => openLightbox(img.src, caption || "", !!reversed));
   return img;
 }
@@ -745,8 +772,13 @@ async function openHistory() {
   panel.hidden = false;
   panel.scrollIntoView({ behavior: "smooth" });
 
+  await refreshHistoryList();
+}
+
+// i18n: extracted so the language toggle can re-render the list in place
+async function refreshHistoryList() {
   const list = $("history-list");
-  list.innerHTML = "<p class='hint'>加载中…</p>";
+  list.innerHTML = t("app.history.loading");
   try {
     const res = await fetch("/api/user/readings?userId=" + encodeURIComponent(moonlitUserId || ""),
       { headers: authHeaders() });
@@ -755,8 +787,7 @@ async function openHistory() {
     list.innerHTML = "";
     // 游客提示：登录后历史云同步 100 条，换设备不丢失
     if (!window.__moonlitMember) {
-      const tip = el("p", "hint history-login-tip",
-        `☁️ <a href="#" id="history-login-link">登录</a>后历史记录云同步 <b>100</b> 条，换设备不丢失，注册还送会员权益 👑`);
+      const tip = el("p", "hint history-login-tip", t("app.history.login_tip"));
       list.appendChild(tip);
       tip.querySelector("#history-login-link").addEventListener("click", (e) => {
         e.preventDefault();
@@ -764,17 +795,17 @@ async function openHistory() {
       });
     }
     if (items.length === 0) {
-      list.innerHTML = "<p class='hint'>还没有解读记录。问一个问题，抽一次牌，这里就会出现你的历史 ✨</p>";
+      list.innerHTML = t("app.history.empty");
       return;
     }
     items.forEach((r) => {
       const details = el("details", "history-item");
-      const date = new Date(r.created_at).toLocaleString("zh-CN", { hour12: false });
+      const date = new Date(r.created_at).toLocaleString(getLang() === "en" ? "en-US" : "zh-CN", { hour12: false });
       const summary = el("summary", null,
         "<span class='history-q'>" + escapeHtml(r.question) + "</span>" +
-        "<span class='history-meta'>" + escapeHtml(r.spread || "") + " · " + date + "</span>");
+        "<span class='history-meta'>" + escapeHtml(spreadDisplayName(r)) + " · " + date + "</span>");
       const body = el("div", "history-body");
-      body.innerHTML = "<p class='hint'>加载中…</p>";
+      body.innerHTML = t("app.history.loading");
       details.appendChild(summary);
       details.appendChild(body);
       details.addEventListener("toggle", async () => {
@@ -786,13 +817,13 @@ async function openHistory() {
           const dd = await rr.json();
           const full = dd.reading;
           const cardNames = full.cards.map((c) =>
-            escapeHtml(c.position + " · " + zhCardName(c) + (c.orientation === "reversed" ? "（逆位）" : ""))).join("<br>");
+            escapeHtml(spreadPosName(full.spread_key, c.position) + " · " + zhCardName(c) + (c.orientation === "reversed" ? t("app.draw.cap_reversed") : ""))).join("<br>");
           let fuHtml = "";
           if (full.followups && full.followups.length) {
-            fuHtml = "<div class='history-fu'><b>💬 追问记录</b>" +
+            fuHtml = t("app.history.followup_title") +
               full.followups.map((f) =>
-                "<div class='fu-q'><b>你问：</b>" + escapeHtml(f.question) + "</div>" +
-                "<div class='fu-a'><b>月光：</b>" + escapeHtml(f.answer).replace(/\n/g, "<br>") + "</div>"
+                "<div class='fu-q'>" + t("app.followup.you_asked") + escapeHtml(f.question) + "</div>" +
+                "<div class='fu-a'>" + t("app.followup.moonlit_says") + escapeHtml(f.answer).replace(/\n/g, "<br>") + "</div>"
               ).join("") + "</div>";
           }
           body.innerHTML =
@@ -805,18 +836,18 @@ async function openHistory() {
             const nm = zhCardName(c);
             const isRev = c.orientation === "reversed";
             thumbs.appendChild(cardThumb(c.id,
-              (c.position ? c.position + " · " : "") + nm + (isRev ? "（逆位）" : "（正位）"), isRev));
+              (c.position ? spreadPosName(full.spread_key, c.position) + " · " : "") + nm + t(isRev ? "app.draw.cap_reversed" : "app.draw.cap_upright"), isRev));
           });
           if (thumbs.children.length) body.insertBefore(thumbs, body.firstChild);
           body.dataset.loaded = "1";
         } catch (e) {
-          body.innerHTML = "<p class='hint'>加载失败，请重试。</p>";
+          body.innerHTML = t("app.history.load_failed");
         }
       });
       list.appendChild(details);
     });
   } catch (e) {
-    list.innerHTML = "<p class='hint'>加载失败，请检查网络后重试。</p>";
+    list.innerHTML = t("app.history.network_failed");
   }
 }
 
@@ -962,7 +993,7 @@ async function renderShareCanvas({ title, subtitle, cards, bodyText, footer }) {
         ctx.strokeRect(x, y, cw, ch);
         ctx.fillStyle = "#f0d98c";
         ctx.font = "28px Georgia, serif";
-        let nm = zhCardName(rowCards[i]) + (rowCards[i].reversed ? " ·逆位" : "");
+        let nm = zhCardName(rowCards[i]) + (rowCards[i].reversed ? t("app.share.card_label_reversed") : "");
         if (nm.length > 16) nm = nm.slice(0, 15) + "…";
         ctx.fillText(nm, x + cw / 2, y + ch + 44);
         x += cw + gap;
@@ -1008,11 +1039,11 @@ async function renderShareCanvas({ title, subtitle, cards, bodyText, footer }) {
     ctx.drawImage(qrImg, qx, qy, qs, qs);
     ctx.fillStyle = "#f0d98c";
     ctx.font = "33px 'PingFang SC', 'Microsoft YaHei', sans-serif";
-    ctx.fillText("长按识别二维码，来月光塔罗抽一张牌", W / 2, qy + qs + 60);
+    ctx.fillText(t("app.share.qr_caption"), W / 2, qy + qs + 60);
   } else {
     ctx.fillStyle = "#f0d98c";
     ctx.font = "33px 'PingFang SC', 'Microsoft YaHei', sans-serif";
-    ctx.fillText("来月光塔罗抽一张牌", W / 2, zoneY + 130);
+    ctx.fillText(t("app.share.qr_caption_short"), W / 2, zoneY + 130);
   }
   ctx.fillStyle = "#9a94b8";
   ctx.font = "30px 'PingFang SC', 'Microsoft YaHei', sans-serif";
@@ -1021,7 +1052,7 @@ async function renderShareCanvas({ title, subtitle, cards, bodyText, footer }) {
   // 落款
   ctx.fillStyle = "#d4af37";
   ctx.font = "34px 'PingFang SC', 'Microsoft YaHei', sans-serif";
-  ctx.fillText(footer || "牌为你开门，路要你自己走 ✨", W / 2, H - 88);
+  ctx.fillText(footer || t("app.share.footer_default"), W / 2, H - 88);
 
   return canvas;
 }
@@ -1059,14 +1090,14 @@ $("share-download").addEventListener("click", () => {
 $("share-copylink").addEventListener("click", async () => {
   const btn = $("share-copylink");
   const link = location.origin;
-  const text = "我在月光塔罗抽了牌，来试试 → " + link;
+  const text = t("app.share.copy_text", { link });
   try {
     await navigator.clipboard.writeText(text);
     const old = btn.textContent;
-    btn.textContent = "✅ 已复制";
+    btn.textContent = t("app.share.copied");
     setTimeout(() => (btn.textContent = old), 2000);
   } catch (e) {
-    prompt("复制这条链接发到小红书 / 朋友圈：", text);
+    prompt(t("app.share.copy_prompt"), text);
   }
 });
 
@@ -1074,8 +1105,8 @@ $("share-native").addEventListener("click", async () => {
   try {
     const blob = await new Promise((r) => shareCanvas.toBlob(r, "image/png"));
     const file = new File([blob], "moonlit-tarot.png", { type: "image/png" });
-    await navigator.share({ files: [file], title: "月光塔罗",
-      text: "我在月光塔罗抽了一张牌，来试试 → " + location.origin });
+    await navigator.share({ files: [file], title: t("app.share.brand"),
+      text: t("app.share.native_text", { link: location.origin }) });
   } catch (e) {
     /* 用户取消了分享 */
   }
@@ -1085,22 +1116,22 @@ $("share-reading").addEventListener("click", async () => {
   const btn = $("share-reading");
   btn.disabled = true;
   const old = btn.textContent;
-  btn.textContent = "正在画图…";
+  btn.textContent = t("app.share.rendering");
   try {
     const canvas = await renderShareCanvas({
-      title: "月光塔罗",
-      subtitle: "「" + state.question + "」",
+      title: t("app.share.brand"),
+      subtitle: t("app.share.subtitle_question", { q: state.question }),
       cards: state.drawn.map((d) => ({
         id: d.card.id,
         name: d.card.name,
         reversed: d.reversed,
       })),
       bodyText: lastReadingText,
-      footer: "🌙 月光塔罗 · 中文塔罗占卜",
+      footer: t("app.share.footer_reading"),
     });
     openShareModal(canvas);
   } catch (e) {
-    alert("生成失败，请重试。");
+    alert(t("app.share.error"));
   }
   btn.disabled = false;
   btn.textContent = old;
@@ -1128,21 +1159,21 @@ function renderDailyCard() {
     reversed = Math.random() < 0.5;
     try { localStorage.setItem(storeKey, JSON.stringify({ id: card.id, reversed })); } catch (e) {}
   }
-  const meaning = reversed ? card.reversed : card.upright;
+  const meaning = cardMeaning(card, reversed ? "reversed" : "upright");
 
-  $("daily-date").textContent = d.getMonth() + 1 + "月" + d.getDate() + "日";
+  $("daily-date").textContent = t("app.daily.date", { m: d.getMonth() + 1, d: d.getDate() });
   const art = $("daily-art");
   art.src = "img/cards/" + card.id + ".webp";
   art.alt = zhCardName(card);
   art.style.transform = reversed ? "rotate(180deg)" : "";
   $("daily-name").textContent = zhCardName(card);
-  $("daily-orient").textContent = reversed ? "逆位" : "正位";
-  $("daily-meaning").textContent = (reversed ? "逆位 · " : "正位 · ") + meaning;
-  $("daily-fortune").textContent = "月光说：" + meaning + "。带着这份提醒，好好过今天吧 ✨";
+  $("daily-orient").textContent = t(reversed ? "app.draw.reversed" : "app.draw.upright");
+  $("daily-meaning").textContent = t(reversed ? "app.draw.reversed_dot" : "app.draw.upright_dot") + meaning;
+  $("daily-fortune").textContent = t("app.daily.fortune", { meaning });
 
   dailyCardData = { card, reversed, meaning };
   art.onclick = () => openLightbox(art.src,
-    zhCardName(card) + (reversed ? "（逆位）" : "（正位）"), reversed);
+    zhCardName(card) + t(reversed ? "app.draw.cap_reversed" : "app.draw.cap_upright"), reversed);
 }
 
 $("daily-share").addEventListener("click", async () => {
@@ -1150,19 +1181,26 @@ $("daily-share").addEventListener("click", async () => {
   const btn = $("daily-share");
   btn.disabled = true;
   const old = btn.textContent;
-  btn.textContent = "正在画图…";
+  btn.textContent = t("app.share.rendering");
   try {
     const { card, reversed, meaning } = dailyCardData;
     const canvas = await renderShareCanvas({
-      title: "每日一牌",
-      subtitle: $("daily-date").textContent + " · " + zhCardName(card) + (reversed ? "（逆位）" : "（正位）"),
+      title: t("app.share.title_daily"),
+      subtitle: t("app.share.subtitle_daily", {
+        date: $("daily-date").textContent,
+        name: zhCardName(card),
+        rev: reversed ? t("app.draw.cap_reversed") : t("app.draw.cap_upright"),
+      }),
       cards: [{ id: card.id, name: card.name, reversed }],
-      bodyText: (reversed ? "逆位 · " : "正位 · ") + meaning + "\n月光说：带着这份提醒，好好过今天吧。",
-      footer: "🌙 月光塔罗 · 明天再来抽一张",
+      bodyText: t("app.share.daily_body", {
+        rev: reversed ? t("app.draw.reversed_dot") : t("app.draw.upright_dot"),
+        meaning,
+      }),
+      footer: t("app.share.footer_daily"),
     });
     openShareModal(canvas);
   } catch (e) {
-    alert("生成失败，请重试。");
+    alert(t("app.share.error"));
   }
   btn.disabled = false;
   btn.textContent = old;
@@ -1179,7 +1217,7 @@ function setAuthMode(mode) {
   authMode = mode;
   $("auth-tab-login").classList.toggle("active", mode === "login");
   $("auth-tab-register").classList.toggle("active", mode === "register");
-  $("auth-submit").textContent = mode === "login" ? "登录" : "注册";
+  $("auth-submit").textContent = t(mode === "login" ? "app.auth.login" : "app.auth.register");
   $("auth-password2").hidden = mode === "login";
   $("auth-code-row").hidden = mode === "login";
   $("auth-code").required = mode === "register";
@@ -1229,15 +1267,15 @@ function startCodeCountdown(sec) {
   const btn = $("auth-send-code");
   clearInterval(codeCountdown);
   btn.disabled = true;
-  btn.textContent = sec + "s 后重发";
+  btn.textContent = t("app.auth.countdown", { sec });
   codeCountdown = setInterval(() => {
     sec--;
     if (sec <= 0) {
       clearInterval(codeCountdown);
       btn.disabled = false;
-      btn.textContent = "发送验证码";
+      btn.textContent = t("app.auth.send_code");
     } else {
-      btn.textContent = sec + "s 后重发";
+      btn.textContent = t("app.auth.countdown", { sec });
     }
   }, 1000);
 }
@@ -1245,13 +1283,13 @@ $("auth-send-code").addEventListener("click", async () => {
   hideAuthError();
   const email = $("auth-email").value.trim();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    showAuthError("请先填写有效的邮箱地址。");
+    showAuthError(t("app.auth.err_invalid_email"));
     $("auth-email").focus();
     return;
   }
   const btn = $("auth-send-code");
   btn.disabled = true;
-  btn.textContent = "发送中…";
+  btn.textContent = t("app.auth.sending");
   try {
     const res = await fetch("/api/auth/send-code", {
       method: "POST",
@@ -1259,12 +1297,12 @@ $("auth-send-code").addEventListener("click", async () => {
       body: JSON.stringify({ email, purpose: "register" }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "发送失败，请重试。");
+    if (!res.ok) throw new Error(data.error || t("app.auth.err_send_failed"));
     startCodeCountdown(60);
   } catch (err) {
     showAuthError(err.message);
     btn.disabled = false;
-    btn.textContent = "发送验证码";
+    btn.textContent = t("app.auth.send_code");
   }
 });
 
@@ -1274,18 +1312,18 @@ $("auth-form").addEventListener("submit", async (e) => {
   const email = $("auth-email").value.trim();
   const password = $("auth-password").value;
   if (authMode === "register" && password !== $("auth-password2").value) {
-    showAuthError("两次输入的密码不一致。");
+    showAuthError(t("app.auth.err_password_mismatch"));
     return;
   }
   const code = authMode === "register" ? $("auth-code").value.trim() : undefined;
   if (authMode === "register" && !/^\d{6}$/.test(code)) {
-    showAuthError("请输入 6 位邮箱验证码。");
+    showAuthError(t("app.auth.err_code"));
     return;
   }
   const btn = $("auth-submit");
   btn.disabled = true;
   const old = btn.textContent;
-  btn.textContent = "请稍候…";
+  btn.textContent = t("app.auth.please_wait");
   try {
     const res = await fetch("/api/auth/" + authMode, {
       method: "POST",
@@ -1293,7 +1331,7 @@ $("auth-form").addEventListener("submit", async (e) => {
       body: JSON.stringify({ email, password, userId: moonlitUserId, code }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "出错了，请重试。");
+    if (!res.ok) throw new Error(data.error || t("app.auth.err_generic"));
     setLoggedIn(data.token, data.email, data.userId);
     closeAuthModal();
   } catch (err) {
@@ -1312,4 +1350,30 @@ $("auth-logout").addEventListener("click", async () => {
   moonlitUserId = null;
   closeAuthModal();
   initUser(); // 回到匿名身份
+});
+
+/* ============================================================
+   语言切换：重渲染 JS 动态生成的内容
+   （静态 HTML 由 i18n.js 的 data-i18n 自动处理）
+   ============================================================ */
+document.addEventListener("moonlit-lang-change", () => {
+  try {
+    // 每日一牌（同一张牌，换语言重渲染）
+    if (typeof renderDailyCard === "function") renderDailyCard();
+    // 牌鉴
+    const grid = $("gallery-grid");
+    if (grid) { grid.innerHTML = ""; buildGallery(); }
+    // 历史记录（仅当历史面板可见时）
+    if ($("step-history") && !$("step-history").hidden && typeof refreshHistoryList === "function") {
+      refreshHistoryList();
+    }
+    // 正在抽牌中的牌位标签
+    if ($("step-draw") && !$("step-draw").hidden && state.drawn.length) {
+      document.querySelectorAll("#drawn .pos-tag").forEach((tag, i) => {
+        if (state.drawn[i]) tag.textContent = spreadPosName(state.spreadKey, state.drawn[i].position);
+      });
+    }
+    // 登录/注册按钮文案（data-i18n 会把它重置成登录，需按当前 tab 恢复）
+    if (typeof setAuthMode === "function") setAuthMode(authMode);
+  } catch (e) { /* 重渲染失败不影响主流程 */ }
 });

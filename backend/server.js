@@ -28,7 +28,7 @@ const helmet = require("helmet");
 require("dotenv").config();
 const { rateLimit, adminBruteForceGuard } = require("./security");
 const { isValidUUID, validateReadingInput, validateFollowupInput,
-  validateBirthInput, validateJournalInput } = require("./validate");
+  validateBirthInput, validateJournalInput, cleanLang, VALID_SPREAD_KEYS } = require("./validate");
 const { buildReading, calcAstro } = require("./divination");
 const { calculateDailyAlmanac } = require("taibu-core/almanac");
 const { ragStatus } = require("./ziwei-rag");
@@ -413,33 +413,85 @@ app.get("/api/admin/recent", adminLimiter, adminGuard.check, checkAdmin, (req, r
    prompt reuses the same lens so follow-ups stay in-topic. Inspired by the
    vincitarot skill pattern (topic spreads with per-focus meanings). */
 const TOPIC_LENS = {
-  "💕 感情牌阵": {
+  "love": {
     role: "一位专精感情与亲密关系的塔罗解读师",
     lens: "请全程用感情视角解读：关注求问者与对方各自的心态、两人的互动模式、沟通与信任。每张牌必须回答它在这个感情牌位上的具体含义，绝不泛泛而谈人生道理。可以谈关系走向，但不做\"一定分手/一定复合\"式断言。",
   },
-  "💼 事业牌阵": {
+  "career": {
     role: "一位专精事业与职场发展的塔罗解读师",
     lens: "请全程用事业视角解读：关注求问者的职场位置、核心能力、人际协作、关键选择。每张牌必须回答它在这个事业牌位上的具体含义，落到真实工作场景（项目、升迁、跳槽、合作）里说，不讲空泛的人生哲理。",
   },
-  "💰 财运牌阵": {
+  "fortune": {
     role: "一位专精财富与金钱能量的塔罗解读师",
     lens: "请全程用财运视角解读：关注收支结构、赚钱机会、花钱风险、理财心态。每张牌必须回答它在这个财运牌位上的具体含义。绝不给具体投资建议（不推荐股票/基金/币种、不预测涨跌），只谈金钱习惯与机会判断。",
   },
 };
-function topicLensFor(spreadName) {
-  return TOPIC_LENS[spreadName] || null;
+/* English versions of the topic lenses, used when the client
+   requests lang=en. Keyed by the same stable spread keys. */
+const TOPIC_LENS_EN = {
+  "love": {
+    role: "a tarot reader specializing in love and intimate relationships",
+    lens: "Interpret everything through the lens of love: focus on the mindsets of the querent and the other person, their interaction patterns, communication and trust. Every card must answer what it means in its specific love-spread position — never generic life advice. You may discuss where the relationship is headed, but never make \"you will definitely break up / get back together\" style assertions.",
+  },
+  "career": {
+    role: "a tarot reader specializing in career and professional growth",
+    lens: "Interpret everything through the lens of career: focus on the querent's position at work, core strengths, collaboration, and key choices. Every card must answer what it means in its specific career-spread position, grounded in real work scenarios (projects, promotions, job changes, partnerships) — no empty philosophy.",
+  },
+  "fortune": {
+    role: "a tarot reader specializing in wealth and money energy",
+    lens: "Interpret everything through the lens of wealth: focus on income/expense structure, earning opportunities, spending risks, and money mindset. Every card must answer what it means in its specific wealth-spread position. Never give specific investment advice (no stock/fund/crypto picks, no price predictions) — only money habits and opportunity judgment.",
+  },
+};
+function topicLensFor(spreadKey, lang) {
+  // Backwards compat: readings saved before the i18n update store the
+  // Chinese spread display name instead of a key.
+  const LEGACY_NAMES = {
+    "🔮 单张指引": "single",
+    "💕 感情牌阵": "love",
+    "💼 事业牌阵": "career",
+    "💰 财运牌阵": "fortune",
+    "✦ 凯尔特十字": "celtic",
+  };
+  const key = VALID_SPREAD_KEYS.includes(spreadKey) ? spreadKey : LEGACY_NAMES[spreadKey];
+  const dict = lang === "en" ? TOPIC_LENS_EN : TOPIC_LENS;
+  return dict[key] || null;
 }
 
-function buildPrompt(question, spreadName, cards) {
+function buildPrompt(question, spreadName, cards, spreadKey, lang) {
+  const en = lang === "en";
   const cardLines = cards
     .map(
       (c) =>
-        `- ${c.position}: ${c.name}（${c.orientation === "reversed" ? "逆位" : "正位"}）。传统牌义：${c.meaning}`
+        en
+          ? `- ${c.position}: ${c.name} (${c.orientation}). Traditional meaning: ${c.meaning_en}`
+          : `- ${c.position}: ${c.name}（${c.orientation === "reversed" ? "逆位" : "正位"}）。传统牌义：${c.meaning}`
     )
     .join("\n");
   // Bigger spreads need more room: 10 cards can't fit in 300 characters.
-  const lenHint = cards.length >= 10 ? "约 550-750 字" : "约 250-350 字";
-  const topic = topicLensFor(spreadName);
+  const lenHint = en
+    ? (cards.length >= 10 ? "about 450-650 words" : "about 200-300 words")
+    : (cards.length >= 10 ? "约 550-750 字" : "约 250-350 字");
+  const topic = topicLensFor(spreadKey, lang);
+
+  if (en) {
+    const roleLine = topic
+      ? `You are "Moonlit", ${topic.role} with 20 years of experience.`
+      : `You are "Moonlit", a tarot reader with 20 years of experience — warm and profound.`;
+    return `${roleLine} You speak gently and directly, like a friend — never empty platitudes.
+
+The querent asks: "${question}"
+Spread: ${spreadName}
+Cards drawn:
+${cardLines}
+${topic ? "\nReading lens for this spread:\n" + topic.lens + "\n" : ""}
+Write a personal tarot reading in English (${lenHint}):
+1. Open with one sentence empathizing with their question.
+2. Interpret each card in its position, tied closely to their specific question.
+3. Weave the cards into one coherent story — show how they connect.
+4. End with clear, warm, actionable advice: one thing they can do this week.
+5. Never reveal you are an AI. No medical, legal, or investment advice; for health matters suggest consulting a professional.`;
+  }
+
   const roleLine = topic
     ? `你是"月光塔罗"（Moonlit），${topic.role}，有 20 年经验。`
     : `你是"月光塔罗"（Moonlit），一位有 20 年经验、温暖而深刻的塔罗占卜师。`;
@@ -463,17 +515,43 @@ ${topic ? "\n本次解读视角：\n" + topic.lens + "\n" : ""}
    The full context (cards + original interpretation + earlier follow-ups)
    comes from OUR database, keyed by reading id — the client only sends
    the id and the new question, so nothing here can be forged. */
-function buildFollowupPrompt(reading, question) {
+function buildFollowupPrompt(reading, question, lang) {
+  const en = lang === "en";
   const cardLines = reading.cards
     .map(
       (c) =>
-        `- ${c.position}: ${c.name}（${c.orientation === "reversed" ? "逆位" : "正位"}）。传统牌义：${c.meaning}`
+        en
+          ? `- ${c.position}: ${c.name} (${c.orientation}). Traditional meaning: ${c.meaning_en || c.meaning}`
+          : `- ${c.position}: ${c.name}（${c.orientation === "reversed" ? "逆位" : "正位"}）。传统牌义：${c.meaning}`
     )
     .join("\n");
   const prev = (reading.followups || [])
-    .map((f) => `追问：${f.question}\n你的回答：${f.answer}`)
+    .map((f) => (en ? `Follow-up: ${f.question}\nYour answer: ${f.answer}` : `追问：${f.question}\n你的回答：${f.answer}`))
     .join("\n\n");
-  const topic = topicLensFor(reading.spread || "");
+  const topic = topicLensFor(reading.spread_key || reading.spread, lang);
+
+  if (en) {
+    const roleLine = topic
+      ? `You are "Moonlit", ${topic.role} with 20 years of experience.`
+      : `You are "Moonlit", a tarot reader with 20 years of experience — warm and profound.`;
+    return `${roleLine} You speak gently and directly, like a friend — never empty platitudes.
+
+Full record of this reading:
+The querent's original question: "${reading.question}"
+Spread: ${reading.spread || "Tarot spread"}
+Cards drawn:
+${cardLines}
+
+Your previous reading:
+${reading.reading_text}
+${prev ? "\nEarlier follow-ups:\n" + prev + "\n" : ""}
+The querent now asks: "${question}"
+${topic ? "\nKeep using this spread's lens for the follow-up:\n" + topic.lens + "\n" : ""}
+Answer this follow-up in English (120-200 words): stay close to the cards and your previous reading, answer only what they asked this time, \
+don't repeat the whole reading. You may end with one small suggestion. \
+Never reveal you are an AI. No medical, legal, or investment advice; for health matters suggest consulting a professional.`;
+  }
+
   const roleLine = topic
     ? `你是"月光塔罗"（Moonlit），${topic.role}，有 20 年经验。`
     : `你是"月光塔罗"（Moonlit），一位有 20 年经验、温暖而深刻的塔罗占卜师。`;
@@ -578,7 +656,7 @@ app.post("/api/reading", readingLimiter, async (req, res) => {
     // request can't inject instructions into the AI prompt.
     const v = validateReadingInput(req.body);
     if (!v.ok) return res.status(400).json({ error: v.error });
-    const { question, spread, cards } = v.clean;
+    const { question, spread, spreadKey, lang, cards } = v.clean;
 
     // --- payment check (skipped while PAYMENTS_ENABLED=false: free for all) ---
     // Celtic Cross (10 cards) costs 2 quota: it burns ~3x the AI tokens.
@@ -600,12 +678,12 @@ app.post("/api/reading", readingLimiter, async (req, res) => {
       }
     }
 
-    const prompt = buildPrompt(question, spread || "Tarot spread", cards);
+    const prompt = buildPrompt(question, spread || "Tarot spread", cards, spreadKey, lang);
     const reading = await askAI(prompt);
 
     // --- save to the user's history + count today's usage ---
     const readingId = userdb.saveReading(user.id, {
-      question, spread: spread || "Tarot spread", cards, readingText: reading,
+      question, spread: spread || "Tarot spread", spreadKey, cards, readingText: reading,
     });
     if (!usedPaidPack && !usedBonus) userdb.countReadingToday(user.id, cost);
 
@@ -631,6 +709,7 @@ app.post("/api/reading/followup", readingLimiter, async (req, res) => {
     const v = validateFollowupInput(req.body);
     if (!v.ok) return res.status(400).json({ error: v.error });
     const { readingId, question } = v.clean;
+    const lang = cleanLang(req.body);
 
     const user = resolveUser(req);
     const reading = userdb.getReadingDetail(user.id, readingId);
@@ -657,7 +736,7 @@ app.post("/api/reading/followup", readingLimiter, async (req, res) => {
       }
     }
 
-    const prompt = buildFollowupPrompt(reading, question);
+    const prompt = buildFollowupPrompt(reading, question, lang);
     const answer = await askAI(prompt);
 
     userdb.saveFollowup(reading.id, user.id, question, answer);
@@ -691,6 +770,7 @@ app.post("/api/divination/:kind", readingLimiter, async (req, res) => {
     const v = validateBirthInput(req.body);
     if (!v.ok) return res.status(400).json({ error: v.error });
     const { question, ...calcInput } = v.clean;
+    const lang = cleanLang(req.body);
 
     // Same quota rules as tarot (skipped while PAYMENTS_ENABLED=false).
     const user = resolveUser(req);
@@ -709,7 +789,7 @@ app.post("/api/divination/:kind", readingLimiter, async (req, res) => {
       }
     }
 
-    const { chartJson, prompt, extra } = buildReading(kind, calcInput, question);
+    const { chartJson, prompt, extra } = buildReading(kind, calcInput, question, lang);
     const reading = await askAI(prompt);
 
     const id = userdb.saveDivination(user.id, {

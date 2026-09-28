@@ -1,0 +1,450 @@
+{
+  "app.auth.login_register": {
+    "zh": "👤 登录 / 注册",
+    "en": "👤 Log in / Sign up"
+  },
+  "app.auth.title_logged_in": {
+    "zh": "{email}（已登录，点击管理）",
+    "en": "{email} (logged in, click to manage)"
+  },
+  "app.auth.login": {
+    "zh": "登录",
+    "en": "Log in"
+  },
+  "app.auth.register": {
+    "zh": "注册",
+    "en": "Sign up"
+  },
+  "app.auth.send_code": {
+    "zh": "发送验证码",
+    "en": "Send code"
+  },
+  "app.auth.sending": {
+    "zh": "发送中…",
+    "en": "Sending…"
+  },
+  "app.auth.countdown": {
+    "zh": "{sec}s 后重发",
+    "en": "Resend in {sec}s"
+  },
+  "app.auth.please_wait": {
+    "zh": "请稍候…",
+    "en": "Please wait…"
+  },
+  "app.auth.err_invalid_email": {
+    "zh": "请先填写有效的邮箱地址。",
+    "en": "Please enter a valid email address."
+  },
+  "app.auth.err_send_failed": {
+    "zh": "发送失败，请重试。",
+    "en": "Failed to send, please try again."
+  },
+  "app.auth.err_password_mismatch": {
+    "zh": "两次输入的密码不一致。",
+    "en": "The two passwords don't match."
+  },
+  "app.auth.err_code": {
+    "zh": "请输入 6 位邮箱验证码。",
+    "en": "Please enter the 6-digit email verification code."
+  },
+  "app.auth.err_generic": {
+    "zh": "出错了，请重试。",
+    "en": "Something went wrong, please try again."
+  },
+  "app.draw.ask_question_first": {
+    "zh": "请先写下你的问题 🔮",
+    "en": "Please write down your question first 🔮"
+  },
+  "app.draw.one_card": {
+    "zh": "1 张牌",
+    "en": "1 card"
+  },
+  "app.draw.count": {
+    "zh": "{n} 张牌",
+    "en": "{n} cards"
+  },
+  "app.draw.shuffling": {
+    "zh": "正在洗牌… 🔮",
+    "en": "Shuffling… 🔮"
+  },
+  "app.draw.hint": {
+    "zh": "点击牌堆抽牌，点击每张牌翻面。",
+    "en": "Click the deck to draw cards, then click each card to flip it."
+  },
+  "app.draw.deck_left": {
+    "zh": "还剩 {n} 张",
+    "en": "{n} cards left"
+  },
+  "app.draw.progress": {
+    "zh": "（{a}/{b}）",
+    "en": "({a}/{b})"
+  },
+  "app.draw.reversed": {
+    "zh": "逆位",
+    "en": "reversed"
+  },
+  "app.draw.upright": {
+    "zh": "正位",
+    "en": "upright"
+  },
+  "app.draw.reversed_dot": {
+    "zh": "逆位 · ",
+    "en": "Reversed · "
+  },
+  "app.draw.upright_dot": {
+    "zh": "正位 · ",
+    "en": "Upright · "
+  },
+  "app.draw.cap_reversed": {
+    "zh": "（逆位）",
+    "en": "(reversed)"
+  },
+  "app.draw.cap_upright": {
+    "zh": "（正位）",
+    "en": "(upright)"
+  },
+  "app.draw.flip_title": {
+    "zh": "{position} — 点击翻牌",
+    "en": "{position} — Click to flip"
+  },
+  "app.reading.loading": {
+    "zh": "牌正在诉说… 🔮",
+    "en": "The cards are speaking… 🔮"
+  },
+  "app.reading.get_reading": {
+    "zh": "✨ 获取解读",
+    "en": "✨ Get reading"
+  },
+  "app.reading.error_connection": {
+    "zh": "连接失败，请重试。",
+    "en": "Connection failed, please try again."
+  },
+  "app.reading.reversed_tag": {
+    "zh": "⟲逆位",
+    "en": "⟲ reversed"
+  },
+  "app.reading.sample_question": {
+    "zh": "你的问题：「{q}」\n",
+    "en": "Your question: \"{q}\"\n"
+  },
+  "app.reading.sample_cards_say": {
+    "zh": "牌这样说：\n",
+    "en": "Here's what the cards say:\n"
+  },
+  "app.reading.sample_card_line": {
+    "zh": "{position} — {name}{rev}：{meaning}",
+    "en": "{position} — {name}{rev}: {meaning}"
+  },
+  "app.reading.sample_closing": {
+    "zh": "\n把这些牌放在一起，一个主题浮现出来：留意那些在你的处境中反复出现的东西，相信你已经感受到的信号，这周先踏出一小步。牌为你开门 — 路要你自己走。✨",
+    "en": "\nLooking at these cards together, a theme emerges: notice what keeps repeating in your situation, trust the signals you've already felt, and take one small step this week. The cards open the door — you walk the path. ✨"
+  },
+  "app.reading.note_demo": {
+    "zh": "示例解读（演示模式）。",
+    "en": "Sample reading (demo mode)."
+  },
+  "app.reading.note_generated": {
+    "zh": "月光塔罗根据你的问题和牌面生成的解读。",
+    "en": "A Moonlit Tarot reading generated from your question and cards."
+  },
+  "app.reading.note_free_left": {
+    "zh": "（今天还剩 {n} 次免费解读）",
+    "en": "({n} free readings left today)"
+  },
+  "app.followup.you_asked": {
+    "zh": "<b>你问：</b>",
+    "en": "<b>You asked:</b>"
+  },
+  "app.followup.moonlit_says": {
+    "zh": "<b>月光：</b>",
+    "en": "<b>Moonlit:</b>"
+  },
+  "app.followup.hint_member_free": {
+    "zh": "👑 会员今日首次追问免费，月光会结合你的牌面回答。",
+    "en": "👑 Members get their first follow-up question free today — Moonlit will answer based on your cards."
+  },
+  "app.followup.hint_cost": {
+    "zh": "每次追问消耗 1 次免费额度，月光会结合你的牌面回答。",
+    "en": "Each follow-up question costs 1 free reading. Moonlit will answer based on your cards."
+  },
+  "app.followup.demo_answer": {
+    "zh": "（演示模式）追问功能已就绪：正式版里，我会结合你的牌面和之前的解读来回答这个问题。",
+    "en": "(Demo mode) Follow-up questions are ready: in the full version, I'll answer based on your cards and the previous reading."
+  },
+  "app.followup.thinking": {
+    "zh": "思考中…",
+    "en": "Thinking…"
+  },
+  "app.pay.creating_order": {
+    "zh": "<p class='hint'>正在创建订单…</p>",
+    "en": "<p class='hint'>Creating order…</p>"
+  },
+  "app.pay.open_payment": {
+    "zh": "点击打开支付",
+    "en": "Click to open payment"
+  },
+  "app.pay.success": {
+    "zh": "✨ 支付成功！这是你的解读。",
+    "en": "✨ Payment successful! Here is your reading."
+  },
+  "app.gallery.group_major": {
+    "zh": "大阿卡纳 · 22",
+    "en": "Major Arcana · 22"
+  },
+  "app.gallery.group_wands": {
+    "zh": "权杖 · 14",
+    "en": "Wands · 14"
+  },
+  "app.gallery.group_cups": {
+    "zh": "圣杯 · 14",
+    "en": "Cups · 14"
+  },
+  "app.gallery.group_swords": {
+    "zh": "宝剑 · 14",
+    "en": "Swords · 14"
+  },
+  "app.gallery.group_pentacles": {
+    "zh": "星币 · 14",
+    "en": "Pentacles · 14"
+  },
+  "app.cards.zoom_title": {
+    "zh": "点击放大查看",
+    "en": "Click to zoom"
+  },
+  "app.cards.arcana_major": {
+    "zh": "大阿卡纳",
+    "en": "Major Arcana"
+  },
+  "app.cards.arcana_minor": {
+    "zh": "小阿卡纳 · {suit}",
+    "en": "Minor Arcana · {suit}"
+  },
+  "app.cards.suit_wands": {
+    "zh": "权杖",
+    "en": "Wands"
+  },
+  "app.cards.suit_cups": {
+    "zh": "圣杯",
+    "en": "Cups"
+  },
+  "app.cards.suit_swords": {
+    "zh": "宝剑",
+    "en": "Swords"
+  },
+  "app.cards.suit_pentacles": {
+    "zh": "星币",
+    "en": "Pentacles"
+  },
+  "app.cards.upright_desc": {
+    "zh": "正位 · {text}",
+    "en": "Upright · {text}"
+  },
+  "app.cards.reversed_desc": {
+    "zh": "逆位 · {text}",
+    "en": "Reversed · {text}"
+  },
+  "app.history.loading": {
+    "zh": "<p class='hint'>加载中…</p>",
+    "en": "<p class='hint'>Loading…</p>"
+  },
+  "app.history.login_tip": {
+    "zh": "☁️ <a href=\"#\" id=\"history-login-link\">登录</a>后历史记录云同步 <b>100</b> 条，换设备不丢失，注册还送会员权益 👑",
+    "en": "☁️ <a href=\"#\" id=\"history-login-link\">Log in</a> to sync <b>100</b> readings to the cloud — keep your history across devices, plus member perks 👑"
+  },
+  "app.history.empty": {
+    "zh": "<p class='hint'>还没有解读记录。问一个问题，抽一次牌，这里就会出现你的历史 ✨</p>",
+    "en": "<p class='hint'>No readings yet. Ask a question and draw cards — your history will appear here ✨</p>"
+  },
+  "app.history.followup_title": {
+    "zh": "<div class='history-fu'><b>💬 追问记录</b>",
+    "en": "<div class='history-fu'><b>💬 Follow-up questions</b>"
+  },
+  "app.history.load_failed": {
+    "zh": "<p class='hint'>加载失败，请重试。</p>",
+    "en": "<p class='hint'>Failed to load, please try again.</p>"
+  },
+  "app.history.network_failed": {
+    "zh": "<p class='hint'>加载失败，请检查网络后重试。</p>",
+    "en": "<p class='hint'>Failed to load, please check your connection and try again.</p>"
+  },
+  "app.share.brand": {
+    "zh": "月光塔罗",
+    "en": "Moonlit Tarot"
+  },
+  "app.share.title_daily": {
+    "zh": "每日一牌",
+    "en": "Daily Card"
+  },
+  "app.share.subtitle_question": {
+    "zh": "「{q}」",
+    "en": "\"{q}\""
+  },
+  "app.share.subtitle_daily": {
+    "zh": "{date} · {name}{rev}",
+    "en": "{date} · {name}{rev}"
+  },
+  "app.share.daily_body": {
+    "zh": "{rev}{meaning}\n月光说：带着这份提醒，好好过今天吧。",
+    "en": "{rev}{meaning}\nMoonlit says: carry this reminder with you today."
+  },
+  "app.share.footer_reading": {
+    "zh": "🌙 月光塔罗 · 中文塔罗占卜",
+    "en": "🌙 Moonlit Tarot · Chinese Tarot Reading"
+  },
+  "app.share.footer_daily": {
+    "zh": "🌙 月光塔罗 · 明天再来抽一张",
+    "en": "🌙 Moonlit Tarot · Come back tomorrow for another card"
+  },
+  "app.share.footer_default": {
+    "zh": "牌为你开门，路要你自己走 ✨",
+    "en": "The cards open the door — you walk the path ✨"
+  },
+  "app.share.qr_caption": {
+    "zh": "长按识别二维码，来月光塔罗抽一张牌",
+    "en": "Scan the QR code to draw a card with Moonlit Tarot"
+  },
+  "app.share.qr_caption_short": {
+    "zh": "来月光塔罗抽一张牌",
+    "en": "Draw a card with Moonlit Tarot"
+  },
+  "app.share.copy_text": {
+    "zh": "我在月光塔罗抽了牌，来试试 → {link}",
+    "en": "I drew cards with Moonlit Tarot, give it a try → {link}"
+  },
+  "app.share.native_text": {
+    "zh": "我在月光塔罗抽了一张牌，来试试 → {link}",
+    "en": "I drew a card with Moonlit Tarot, give it a try → {link}"
+  },
+  "app.share.copied": {
+    "zh": "✅ 已复制",
+    "en": "✅ Copied"
+  },
+  "app.share.copy_prompt": {
+    "zh": "复制这条链接发到小红书 / 朋友圈：",
+    "en": "Copy this link and post it to Xiaohongshu / Moments:"
+  },
+  "app.share.rendering": {
+    "zh": "正在画图…",
+    "en": "Rendering…"
+  },
+  "app.share.error": {
+    "zh": "生成失败，请重试。",
+    "en": "Failed to generate, please try again."
+  },
+  "app.share.card_label_reversed": {
+    "zh": " ·逆位",
+    "en": " · reversed"
+  },
+  "app.daily.date": {
+    "zh": "{m}月{d}日",
+    "en": "{m}/{d}"
+  },
+  "app.daily.fortune": {
+    "zh": "月光说：{meaning}。带着这份提醒，好好过今天吧 ✨",
+    "en": "Moonlit says: {meaning}. Carry this reminder with you today ✨"
+  },
+  "app.spread.single.position_0": {
+    "zh": "你的指引",
+    "en": "Your guidance"
+  },
+  "app.spread.love.position_0": {
+    "zh": "你的状态",
+    "en": "Your state"
+  },
+  "app.spread.love.position_1": {
+    "zh": "对方的状态",
+    "en": "Their state"
+  },
+  "app.spread.love.position_2": {
+    "zh": "关系现状",
+    "en": "The relationship now"
+  },
+  "app.spread.love.position_3": {
+    "zh": "阻碍",
+    "en": "Obstacles"
+  },
+  "app.spread.love.position_4": {
+    "zh": "未来发展",
+    "en": "Future development"
+  },
+  "app.spread.career.position_0": {
+    "zh": "事业现状",
+    "en": "Current situation"
+  },
+  "app.spread.career.position_1": {
+    "zh": "你的优势",
+    "en": "Your strengths"
+  },
+  "app.spread.career.position_2": {
+    "zh": "当前挑战",
+    "en": "Current challenges"
+  },
+  "app.spread.career.position_3": {
+    "zh": "潜在机遇",
+    "en": "Hidden opportunities"
+  },
+  "app.spread.career.position_4": {
+    "zh": "未来趋势",
+    "en": "Future trends"
+  },
+  "app.spread.fortune.position_0": {
+    "zh": "财务现状",
+    "en": "Financial situation"
+  },
+  "app.spread.fortune.position_1": {
+    "zh": "收入机会",
+    "en": "Income opportunities"
+  },
+  "app.spread.fortune.position_2": {
+    "zh": "支出风险",
+    "en": "Spending risks"
+  },
+  "app.spread.fortune.position_3": {
+    "zh": "理财建议",
+    "en": "Money advice"
+  },
+  "app.spread.fortune.position_4": {
+    "zh": "未来趋势",
+    "en": "Future trends"
+  },
+  "app.spread.celtic.position_0": {
+    "zh": "1 · 现状",
+    "en": "1 · Present"
+  },
+  "app.spread.celtic.position_1": {
+    "zh": "2 · 挑战",
+    "en": "2 · Challenge"
+  },
+  "app.spread.celtic.position_2": {
+    "zh": "3 · 目标",
+    "en": "3 · Goal"
+  },
+  "app.spread.celtic.position_3": {
+    "zh": "4 · 根基",
+    "en": "4 · Foundation"
+  },
+  "app.spread.celtic.position_4": {
+    "zh": "5 · 过去",
+    "en": "5 · Past"
+  },
+  "app.spread.celtic.position_5": {
+    "zh": "6 · 未来",
+    "en": "6 · Future"
+  },
+  "app.spread.celtic.position_6": {
+    "zh": "7 · 自我",
+    "en": "7 · Self"
+  },
+  "app.spread.celtic.position_7": {
+    "zh": "8 · 环境",
+    "en": "8 · Environment"
+  },
+  "app.spread.celtic.position_8": {
+    "zh": "9 · 希望与恐惧",
+    "en": "9 · Hopes & Fears"
+  },
+  "app.spread.celtic.position_9": {
+    "zh": "10 · 结果",
+    "en": "10 · Outcome"
+  }
+}

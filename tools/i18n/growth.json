@@ -1,0 +1,462 @@
+{
+  "growth.referral.success": {
+    "zh": "🎉 受邀成功！你和朋友各得 +{n} 次免费解读",
+    "en": "🎉 Referral success! You and your friend each get +{n} free readings"
+  },
+  "growth.almanac.load_failed": {
+    "zh": "黄历加载失败，刷新试试。",
+    "en": "Almanac failed to load — try refreshing."
+  },
+  "growth.almanac.md": {
+    "zh": "{m}月{d}日",
+    "en": "{m}/{d}"
+  },
+  "growth.almanac.weekday": {
+    "zh": "星期{w}",
+    "en": "{w}"
+  },
+  "growth.almanac.lunar": {
+    "zh": "农历{lunar} · {ganzhi}日 · {zodiac}年",
+    "en": "Lunar {lunar} · {ganzhi} day · Year of the {zodiac}"
+  },
+  "growth.almanac.yi": {
+    "zh": "宜",
+    "en": "Auspicious"
+  },
+  "growth.almanac.ji": {
+    "zh": "忌",
+    "en": "Avoid"
+  },
+  "growth.almanac.chongsha": {
+    "zh": "⚡ 冲煞：{v}",
+    "en": "⚡ Clash: {v}"
+  },
+  "growth.almanac.caishen": {
+    "zh": "💰 财神：{v}",
+    "en": "💰 Wealth God: {v}"
+  },
+  "growth.almanac.xishen": {
+    "zh": "😊 喜神：{v}",
+    "en": "😊 Joy God: {v}"
+  },
+  "growth.almanac.hours_title": {
+    "zh": "时辰吉凶 · 彭祖百忌",
+    "en": "Hourly fortune · Pengzu taboos"
+  },
+  "growth.almanac.pengzu": {
+    "zh": "彭祖百忌：{v}",
+    "en": "Pengzu taboos: {v}"
+  },
+  "growth.almanac.taishen": {
+    "zh": "胎神：{ts} · 值日：{off}（{shen}{luck}）",
+    "en": "Fetal God: {ts} · Day officer: {off} ({shen}{luck})"
+  },
+  "growth.almanac.foot": {
+    "zh": "传统民俗，仅供娱乐 🌙",
+    "en": "Traditional folklore, for fun only 🌙"
+  },
+  "growth.almanac.shichen_label": {
+    "zh": "{s}时",
+    "en": "{s} hour"
+  },
+  "growth.almanac.lucky": {
+    "zh": "吉",
+    "en": "Auspicious"
+  },
+  "growth.almanac.unlucky": {
+    "zh": "凶",
+    "en": "Inauspicious"
+  },
+  "growth.horo.sign_aries": {
+    "zh": "白羊座",
+    "en": "Aries"
+  },
+  "growth.horo.sign_taurus": {
+    "zh": "金牛座",
+    "en": "Taurus"
+  },
+  "growth.horo.sign_gemini": {
+    "zh": "双子座",
+    "en": "Gemini"
+  },
+  "growth.horo.sign_cancer": {
+    "zh": "巨蟹座",
+    "en": "Cancer"
+  },
+  "growth.horo.sign_leo": {
+    "zh": "狮子座",
+    "en": "Leo"
+  },
+  "growth.horo.sign_virgo": {
+    "zh": "处女座",
+    "en": "Virgo"
+  },
+  "growth.horo.sign_libra": {
+    "zh": "天秤座",
+    "en": "Libra"
+  },
+  "growth.horo.sign_scorpio": {
+    "zh": "天蝎座",
+    "en": "Scorpio"
+  },
+  "growth.horo.sign_sagittarius": {
+    "zh": "射手座",
+    "en": "Sagittarius"
+  },
+  "growth.horo.sign_capricorn": {
+    "zh": "摩羯座",
+    "en": "Capricorn"
+  },
+  "growth.horo.sign_aquarius": {
+    "zh": "水瓶座",
+    "en": "Aquarius"
+  },
+  "growth.horo.sign_pisces": {
+    "zh": "双鱼座",
+    "en": "Pisces"
+  },
+  "growth.horo.dim_overall": {
+    "zh": "综合",
+    "en": "Overall"
+  },
+  "growth.horo.dim_love": {
+    "zh": "爱情",
+    "en": "Love"
+  },
+  "growth.horo.dim_career": {
+    "zh": "事业",
+    "en": "Career"
+  },
+  "growth.horo.dim_wealth": {
+    "zh": "财运",
+    "en": "Wealth"
+  },
+  "growth.horo.lucky_color": {
+    "zh": "🎨 幸运色：<b>{v}</b>",
+    "en": "🎨 Lucky color: <b>{v}</b>"
+  },
+  "growth.horo.lucky_number": {
+    "zh": "🔢 幸运数字：<b>{n}</b>",
+    "en": "🔢 Lucky number: <b>{n}</b>"
+  },
+  "growth.horo.mate": {
+    "zh": "💞 速配：<b>{v}</b>",
+    "en": "💞 Best match: <b>{v}</b>"
+  },
+  "growth.horo.foot": {
+    "zh": "每天更新，仅供娱乐 🌙",
+    "en": "Updated daily, for fun only 🌙"
+  },
+  "growth.checkin.streak_done": {
+    "zh": "已连续签到 {n} 天 🎉",
+    "en": "{n}-day check-in streak 🎉"
+  },
+  "growth.checkin.streak_pending": {
+    "zh": "已连续签到 {n} 天，今日还未签到",
+    "en": "{n}-day streak — not checked in today yet"
+  },
+  "growth.checkin.not_today": {
+    "zh": "今日还未签到",
+    "en": "Not checked in today"
+  },
+  "growth.checkin.dots_title": {
+    "zh": "再签到 {n} 天得 +2 次免费解读",
+    "en": "{n} more check-ins for +2 free readings"
+  },
+  "growth.checkin.done_btn": {
+    "zh": "✅ 今日已签到",
+    "en": "✅ Checked in today"
+  },
+  "growth.checkin.btn": {
+    "zh": "📅 每日签到",
+    "en": "📅 Daily check-in"
+  },
+  "growth.checkin.guest_info": {
+    "zh": "👑 <b>登录后签到</b>：连续 7 天得 +2 次免费解读，签到记录云同步不丢失",
+    "en": "👑 <b>Sign in to check in</b>: a 7-day streak earns +2 free readings, synced to the cloud so you never lose it"
+  },
+  "growth.checkin.guest_dots": {
+    "zh": "登录后签到，满 7 天得 +2 次免费解读",
+    "en": "Sign in to check in; 7 days earns +2 free readings"
+  },
+  "growth.checkin.guest_btn": {
+    "zh": "👑 登录后签到",
+    "en": "👑 Sign in to check in"
+  },
+  "growth.checkin.need_login": {
+    "zh": "登录后签到，连续 7 天得免费解读 👑",
+    "en": "Sign in to check in — a 7-day streak earns free readings 👑"
+  },
+  "growth.checkin.login_required": {
+    "zh": "请先登录",
+    "en": "Please sign in first"
+  },
+  "growth.checkin.reward_toast": {
+    "zh": "🎉 连续签到 7 天！+{n} 次免费解读已到账",
+    "en": "🎉 7-day streak! +{n} free readings credited"
+  },
+  "growth.checkin.success_toast": {
+    "zh": "签到成功！已连续 {n} 天",
+    "en": "Checked in! {n}-day streak"
+  },
+  "growth.checkin.fail_toast": {
+    "zh": "签到失败，稍后再试",
+    "en": "Check-in failed, try again later"
+  },
+  "growth.share.desc_member": {
+    "zh": "把月光塔罗分享给朋友 —— 朋友通过你的链接进来，你们 <b>各得 +2 次</b>免费解读；每天分享最多再领 <b>3 次</b> 👑。",
+    "en": "Share Moonlit Tarot with friends — when a friend joins via your link, you <b>each get +2</b> free readings; share daily to earn up to <b>3 more</b> 👑."
+  },
+  "growth.share.desc_guest": {
+    "zh": "把月光塔罗分享给朋友 —— 朋友通过你的链接进来，你们 <b>各得 +1 次</b>免费解读；<b>登录后</b>邀请各得 <b>+2 次</b>、每天分享最多再领 <b>3 次</b> 👑。",
+    "en": "Share Moonlit Tarot with friends — when a friend joins via your link, you <b>each get +1</b> free reading; <b>after signing in</b>, invites earn <b>+2 each</b> and sharing earns up to <b>3</b> per day 👑."
+  },
+  "growth.share.guest_status_main": {
+    "zh": "👑 <b>登录后分享赚次数</b>：每天最多 3 次免费解读，注册只要 10 秒",
+    "en": "👑 <b>Sign in to earn readings by sharing</b>: up to 3 free readings a day, sign-up takes 10 seconds"
+  },
+  "growth.share.guest_status_hint": {
+    "zh": "奖励在免费额度用完后自动抵扣，不会过期",
+    "en": "Bonuses kick in after your free readings run out, and never expire"
+  },
+  "growth.share.status_main": {
+    "zh": "🎟 我的奖励次数：<b>{bonus}</b> · 今日还可领取：<b>{left}</b> 次",
+    "en": "🎟 My bonus readings: <b>{bonus}</b> · Claimable today: <b>{left}</b>"
+  },
+  "growth.share.status_hint": {
+    "zh": "奖励在免费额度用完后自动抵扣，不会过期 · 👑 会员每天可领 3 次",
+    "en": "Bonuses kick in after free readings run out and never expire · 👑 members can claim 3 per day"
+  },
+  "growth.share.need_login": {
+    "zh": "登录后分享可领取奖励次数 👑",
+    "en": "Sign in to claim share rewards 👑"
+  },
+  "growth.share.granted_toast": {
+    "zh": "🎉 +1 次免费解读已到账",
+    "en": "🎉 +1 free reading credited"
+  },
+  "growth.share.exhausted_toast": {
+    "zh": "今日领取次数已用完，明天再来",
+    "en": "Today's claims are used up — come back tomorrow"
+  },
+  "growth.share.fail_toast": {
+    "zh": "领取失败，稍后再试",
+    "en": "Claim failed, try again later"
+  },
+  "growth.share.share_title": {
+    "zh": "月光塔罗",
+    "en": "Moonlit Tarot"
+  },
+  "growth.share.share_text": {
+    "zh": "来月光塔罗抽一张牌，看看今晚的月光想告诉你什么 🌙",
+    "en": "Draw a card on Moonlit Tarot and see what tonight's moonlight wants to tell you 🌙"
+  },
+  "growth.share.copied_toast": {
+    "zh": "链接已复制，发给朋友吧",
+    "en": "Link copied — send it to a friend"
+  },
+  "growth.share.copy_fail_toast": {
+    "zh": "复制失败，长按复制链接",
+    "en": "Copy failed — long-press to copy the link"
+  },
+  "growth.share.invite_copied": {
+    "zh": "邀请链接已复制 📋",
+    "en": "Invite link copied 📋"
+  },
+  "growth.share.invite_copy_fail": {
+    "zh": "复制失败，请手动复制下方链接",
+    "en": "Copy failed — please copy the link below manually"
+  },
+  "growth.onboard.title": {
+    "zh": "今晚，想为什么而来？",
+    "en": "What brings you here tonight?"
+  },
+  "growth.onboard.sub": {
+    "zh": "选一个，月光带你直达",
+    "en": "Pick one and let the moonlight take you there"
+  },
+  "growth.onboard.intent_love": {
+    "zh": "感情桃花",
+    "en": "Love & romance"
+  },
+  "growth.onboard.intent_career": {
+    "zh": "事业工作",
+    "en": "Career & work"
+  },
+  "growth.onboard.intent_wealth": {
+    "zh": "财运",
+    "en": "Wealth"
+  },
+  "growth.onboard.intent_study": {
+    "zh": "学业考试",
+    "en": "Study & exams"
+  },
+  "growth.onboard.intent_chart": {
+    "zh": "看看命盘",
+    "en": "Cast my chart"
+  },
+  "growth.onboard.intent_browse": {
+    "zh": "随便逛逛",
+    "en": "Just browsing"
+  },
+  "growth.onboard.q_love": {
+    "zh": "我最近的感情运势如何？",
+    "en": "How is my love life looking lately?"
+  },
+  "growth.onboard.q_career": {
+    "zh": "我接下来的事业运怎么样？",
+    "en": "How is my career looking ahead?"
+  },
+  "growth.onboard.q_wealth": {
+    "zh": "我近期的财运如何？",
+    "en": "How is my wealth luck lately?"
+  },
+  "growth.onboard.q_study": {
+    "zh": "我最近的学业/考试运怎么样？",
+    "en": "How are my studies/exams looking lately?"
+  },
+  "growth.horo.f_overall_1": {
+    "zh": "整体节奏偏顺，适合把拖延的事推进一下。",
+    "en": "The overall rhythm is smooth — good day to move stalled tasks forward."
+  },
+  "growth.horo.f_love_1": {
+    "zh": "适合主动一点，TA 在等你的信号。",
+    "en": "Be a little bolder — they're waiting for your signal."
+  },
+  "growth.horo.f_career_1": {
+    "zh": "适合推进卡了很久的那件事。",
+    "en": "Good day to push forward that long-stuck task."
+  },
+  "growth.horo.f_wealth_1": {
+    "zh": "正财运稳，偏财别贪心。",
+    "en": "Steady income luck; don't get greedy with windfalls."
+  },
+  "growth.horo.f_overall_2": {
+    "zh": "今天的直觉很准，跟着感觉走不容易错。",
+    "en": "Your intuition is sharp today; following your gut won't steer you wrong."
+  },
+  "growth.horo.f_love_2": {
+    "zh": "单身者今天桃花藏在朋友的朋友里。",
+    "en": "Singles: romance may hide among a friend's friends."
+  },
+  "growth.horo.f_career_2": {
+    "zh": "会议上大胆说出想法，会被看见。",
+    "en": "Speak up boldly in meetings — you'll be noticed."
+  },
+  "growth.horo.f_wealth_2": {
+    "zh": "适合整理账单，会发现省钱空间。",
+    "en": "Good day to review bills — you'll find ways to save."
+  },
+  "growth.horo.f_overall_3": {
+    "zh": "宜稳不宜急，守住节奏就是赢。",
+    "en": "Steady wins: hold your pace instead of rushing."
+  },
+  "growth.horo.f_love_3": {
+    "zh": "有伴者适合一次走心的聊天，别只聊琐事。",
+    "en": "Coupled: have a heart-to-heart instead of just small talk."
+  },
+  "growth.horo.f_career_3": {
+    "zh": "贵人运在线，别不好意思求助。",
+    "en": "Helpful people are around; don't be shy to ask."
+  },
+  "growth.horo.f_wealth_3": {
+    "zh": "小额尝试可以，大手笔再等等。",
+    "en": "Small experiments are fine; hold off on big moves."
+  },
+  "growth.horo.f_overall_4": {
+    "zh": "会有小确幸找上门，记得抬头看看。",
+    "en": "Small joys are coming your way — remember to look up."
+  },
+  "growth.horo.f_love_4": {
+    "zh": "先把自己照顾好，爱情会跟着来。",
+    "en": "Take care of yourself first, and love will follow."
+  },
+  "growth.horo.f_career_4": {
+    "zh": "细节决定成败，今天多检查一遍。",
+    "en": "Details decide success — double-check today."
+  },
+  "growth.horo.f_wealth_4": {
+    "zh": "今天适合谈加薪或接副业线索。",
+    "en": "Good day to negotiate a raise or chase side-gig leads."
+  },
+  "growth.horo.f_overall_5": {
+    "zh": "适合复盘和整理，为明天蓄力。",
+    "en": "Good for reviewing and tidying up, saving energy for tomorrow."
+  },
+  "growth.horo.f_love_5": {
+    "zh": "旧人旧事别回头，向前看更甜。",
+    "en": "Don't look back at old flames — ahead is sweeter."
+  },
+  "growth.horo.f_career_5": {
+    "zh": "适合学习新技能，吸收特别快。",
+    "en": "Great for learning new skills; you'll absorb them fast."
+  },
+  "growth.horo.f_wealth_5": {
+    "zh": "冲动消费预警，购物车先冷静一晚。",
+    "en": "Impulse-buying alert: let the cart cool off overnight."
+  },
+  "growth.horo.f_overall_6": {
+    "zh": "别被琐事带跑，抓住一件重要的事就好。",
+    "en": "Don't let trivial things distract you; just nail one important thing."
+  },
+  "growth.horo.f_love_6": {
+    "zh": "一个小小的关心，比一百句情话管用。",
+    "en": "One small act of care beats a hundred sweet words."
+  },
+  "growth.horo.f_career_6": {
+    "zh": "保持耐心，大项目正在悄悄成形。",
+    "en": "Stay patient — a big project is quietly taking shape."
+  },
+  "growth.horo.f_wealth_6": {
+    "zh": "朋友带来的消息里藏着机会。",
+    "en": "News from a friend may hide an opportunity."
+  },
+  "growth.horo.color_peach": {
+    "zh": "蜜桃粉",
+    "en": "Peach pink"
+  },
+  "growth.horo.color_moonlight": {
+    "zh": "月光白",
+    "en": "Moonlight white"
+  },
+  "growth.horo.color_starry": {
+    "zh": "星空蓝",
+    "en": "Starry blue"
+  },
+  "growth.horo.color_obsidian": {
+    "zh": "曜石黑",
+    "en": "Obsidian black"
+  },
+  "growth.horo.color_champagne": {
+    "zh": "香槟金",
+    "en": "Champagne gold"
+  },
+  "growth.horo.color_mint": {
+    "zh": "薄荷绿",
+    "en": "Mint green"
+  },
+  "growth.horo.color_cherry": {
+    "zh": "樱桃红",
+    "en": "Cherry red"
+  },
+  "growth.horo.color_lavender": {
+    "zh": "薰衣草紫",
+    "en": "Lavender purple"
+  },
+  "growth.horo.color_cream": {
+    "zh": "奶油黄",
+    "en": "Cream yellow"
+  },
+  "growth.horo.color_haze": {
+    "zh": "雾霾灰",
+    "en": "Hazy gray"
+  },
+  "growth.horo.color_coral": {
+    "zh": "珊瑚橙",
+    "en": "Coral orange"
+  },
+  "growth.horo.color_celadon": {
+    "zh": "青瓷绿",
+    "en": "Celadon green"
+  }
+}
