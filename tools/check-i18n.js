@@ -29,6 +29,7 @@ const DYNAMIC_PREFIXES = [
   "growth.onboard.q_",     // t("growth.onboard.q_" + ...)
   "growth.horo.f_",        // horoscope fortune lines t("growth.horo.f_" + ...)
   "growth.horo.color_",    // t(f.color) where f.color = "growth.horo.color_" + ...
+  "app.daily.fortune_",     // daily fortune rotation: t("app.daily.fortune_" + (dayOfYear % 8))
 ];
 
 const used = new Set();

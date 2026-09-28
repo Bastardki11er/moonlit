@@ -334,6 +334,19 @@ function showReadingStep() {
 }
 
 // ---------- step 4: the reading ----------
+/* One silent retry on transient failure (network blip / 5xx / timeout).
+   402 paywall and other 4xx errors are not retried. */
+async function withOneRetry(fn) {
+  try {
+    return await fn();
+  } catch (err) {
+    if (err.code === 402) throw err; // paywall: don't retry
+    if (/API error 4\d\d/.test(err.message || "")) throw err;
+    await new Promise((r) => setTimeout(r, 1200));
+    return fn();
+  }
+}
+
 $("get-reading").addEventListener("click", async () => {
   const btn = $("get-reading");
   btn.disabled = true;
@@ -343,7 +356,7 @@ $("get-reading").addEventListener("click", async () => {
   box.textContent = t("app.reading.loading");
 
   try {
-    const result = DEMO_MODE ? { text: makeSampleReading() } : await fetchRealReading();
+    const result = DEMO_MODE ? { text: makeSampleReading() } : await withOneRetry(fetchRealReading);
     box.classList.remove("loading");
     box.textContent = result.text;
     lastReadingText = result.text;
@@ -473,7 +486,7 @@ $("followup-send").addEventListener("click", async () => {
   const old = btn.textContent;
   btn.textContent = t("app.followup.thinking");
   try {
-    const res = await fetch("/api/reading/followup", {
+    const res = await withOneRetry(() => fetch("/api/reading/followup", {
       method: "POST",
       headers: authHeaders(),
       body: JSON.stringify({
@@ -482,7 +495,7 @@ $("followup-send").addEventListener("click", async () => {
         question: q,
         lang: getLang(),
       }),
-    });
+    }));
     if (res.status === 402) {
       $("paywall").hidden = false;
       $("paywall").scrollIntoView({ behavior: "smooth" });
@@ -1169,7 +1182,9 @@ function renderDailyCard() {
   $("daily-name").textContent = zhCardName(card);
   $("daily-orient").textContent = t(reversed ? "app.draw.reversed" : "app.draw.upright");
   $("daily-meaning").textContent = t(reversed ? "app.draw.reversed_dot" : "app.draw.upright_dot") + meaning;
-  $("daily-fortune").textContent = t("app.daily.fortune", { meaning });
+  /* Fortune line rotates daily (8 templates) so it doesn't feel samey. */
+  const dayOfYear = Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 86400000);
+  $("daily-fortune").textContent = t("app.daily.fortune_" + (dayOfYear % 8), { meaning });
 
   dailyCardData = { card, reversed, meaning };
   art.onclick = () => openLightbox(art.src,

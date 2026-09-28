@@ -339,9 +339,37 @@
     "zh": "{m}月{d}日",
     "en": "{m}/{d}"
   },
-  "app.daily.fortune": {
+  "app.daily.fortune_0": {
     "zh": "月光说：{meaning}。带着这份提醒，好好过今天吧 ✨",
     "en": "Moonlit says: {meaning}. Carry this reminder with you today ✨"
+  },
+  "app.daily.fortune_1": {
+    "zh": "今晚的月亮想告诉你：{meaning}。别急，答案会在路上慢慢清晰 🌙",
+    "en": "Tonight the moon wants you to know: {meaning}. Don't rush — the answer will clear up along the way 🌙"
+  },
+  "app.daily.fortune_2": {
+    "zh": "{meaning}——这是今天牌面给你的关键词。遇到选择时，想起它 ✨",
+    "en": "{meaning} — that's your keyword from today's card. When a choice comes up, remember it ✨"
+  },
+  "app.daily.fortune_3": {
+    "zh": "月光低语：{meaning}。今天适合慢一点，温柔一点 🌙",
+    "en": "The moonlight whispers: {meaning}. Today calls for slowing down and being gentle 🌙"
+  },
+  "app.daily.fortune_4": {
+    "zh": "今日牌面已定：{meaning}。把这份指引揣进口袋，出门吧 ✨",
+    "en": "Today's card is set: {meaning}. Tuck this guidance in your pocket and head out ✨"
+  },
+  "app.daily.fortune_5": {
+    "zh": "今天的月亮说：{meaning}。无论发生什么，先照顾好自己 🌙",
+    "en": "Today the moon says: {meaning}. Whatever happens, take care of yourself first 🌙"
+  },
+  "app.daily.fortune_6": {
+    "zh": "{meaning}。这是今日牌面的课题，做到了就是成长 ✨",
+    "en": "{meaning}. That's the lesson in today's card — living it is growth ✨"
+  },
+  "app.daily.fortune_7": {
+    "zh": "月光提醒：{meaning}。今晚睡前，回想一下今天有没有做到 🌙",
+    "en": "A moonlit reminder: {meaning}. Before sleep tonight, look back on whether you lived it 🌙"
   },
   "app.spread.single.position_0": {
     "zh": "你的指引",

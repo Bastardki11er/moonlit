@@ -575,7 +575,26 @@ ${topic ? "\n本次追问仍用该牌阵的视角：\n" + topic.lens + "\n" : ""
 }
 
 /* ---------- call the AI ---------- */
+/* One automatic retry on transient failures (AI timeout, network blip, 5xx).
+   Non-transient errors (4xx, missing key) throw immediately. */
+function isTransientAIError(err) {
+  if (!err) return false;
+  if (err.name === "AbortError" || err.name === "TimeoutError") return true;
+  if (err instanceof TypeError) return true; // fetch failed: network blip
+  return /API error 5\d\d|error 5\d\d/i.test(err.message || "");
+}
+
 async function askAI(prompt) {
+  try {
+    return await askAIOnce(prompt);
+  } catch (err) {
+    if (!isTransientAIError(err)) throw err;
+    await new Promise((r) => setTimeout(r, 1200));
+    return askAIOnce(prompt);
+  }
+}
+
+async function askAIOnce(prompt) {
   const provider = (process.env.AI_PROVIDER || "doubao").toLowerCase();
 
   /* Doubao (ByteDance) via Volcengine — OpenAI-compatible API.
