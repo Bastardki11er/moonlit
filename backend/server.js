@@ -616,11 +616,11 @@ async function askAIOnce(prompt) {
   /* Doubao (ByteDance) via Volcengine — OpenAI-compatible API.
      Get a key: https://console.volcengine.com → enable the Doubao model → Ark → API Key management.
      Model IDs look like doubao-seed-1-6-250615
-     (or doubao-seed-1-6-flash-250615 for faster + cheaper — the default). */
+     (doubao-seed-2-1-lite-260915 is the current pick: fast + cheap). */
   if (provider === "doubao") {
     const key = process.env.DOUBAO_API_KEY;
     if (!key) throw new Error("Missing DOUBAO_API_KEY in .env");
-    const model = process.env.DOUBAO_MODEL || "doubao-seed-1-6-flash-250615";
+    const model = process.env.DOUBAO_MODEL || "doubao-seed-2-1-lite-260915";
     const res = await fetch("https://ark.cn-beijing.volces.com/api/v3/chat/completions", {
       method: "POST",
       signal: AbortSignal.timeout(45000), // never hang forever if the AI API stalls
