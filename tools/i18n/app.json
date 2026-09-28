@@ -474,5 +474,17 @@
   "app.spread.celtic.position_9": {
     "zh": "10 · 结果",
     "en": "10 · Outcome"
+  },
+  "app.feedback.success": {
+    "zh": "收到！感谢你的反馈，我们会认真看每一条 💌",
+    "en": "Got it! Thanks for the feedback — we read every message 💌"
+  },
+  "app.feedback.too_short": {
+    "zh": "反馈内容至少写 10 个字哦",
+    "en": "Please write at least 10 characters"
+  },
+  "app.feedback.failed": {
+    "zh": "提交失败，请稍后再试",
+    "en": "Submission failed, please try again later"
   }
 }

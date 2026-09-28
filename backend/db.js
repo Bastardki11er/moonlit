@@ -139,6 +139,16 @@ CREATE TABLE IF NOT EXISTS birth_profiles (
   is_leap_month INTEGER NOT NULL DEFAULT 0,
   updated_at   TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS feedback (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id    TEXT,                          -- anonymous visitor id (may be NULL)
+  category   TEXT NOT NULL DEFAULT 'other', -- suggestion | bug | other
+  contact    TEXT NOT NULL DEFAULT '',      -- optional email / QQ for reply
+  message    TEXT NOT NULL,
+  status     TEXT NOT NULL DEFAULT 'new',   -- new | read
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_feedback_created ON feedback(id DESC);
 `;
 
 let db = null;
@@ -774,6 +784,21 @@ function deleteJournal(userId, id) {
   return true;
 }
 
+/* ---------- user feedback ---------- */
+function saveFeedback(userId, { category, contact, message }) {
+  run(
+    "INSERT INTO feedback (user_id, category, contact, message, status, created_at) VALUES (?, ?, ?, ?, 'new', ?)",
+    [userId || null, category, contact, message, now()]
+  );
+  return get("SELECT last_insert_rowid() AS id").id;
+}
+function listFeedback(limit = 100) {
+  return all(
+    "SELECT id, user_id, category, contact, message, status, created_at FROM feedback ORDER BY id DESC LIMIT ?",
+    [limit]
+  );
+}
+
 const api = {
   getOrCreateUser,
   setNickname,
@@ -828,6 +853,9 @@ const api = {
   getJournalEntry,
   updateJournal,
   deleteJournal,
+  // user feedback
+  saveFeedback,
+  listFeedback,
 };
 
 module.exports = { init };

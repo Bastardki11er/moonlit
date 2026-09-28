@@ -343,7 +343,7 @@
 
   <footer>
     <p data-i18n="html.footer.line1">🌙 月光塔罗 · 牌为你开门，路要你自己走。仅供娱乐与自我探索。</p>
-    <p><span data-i18n="html.footer.contact">💬 联系客服：</span>QQ <a href="https://wpa.qq.com/msgrd?v=3&uin=3317927502&site=qq&menu=yes" target="_blank" rel="noopener">3317927502</a> <span data-i18n="html.footer.dot">·</span> <span data-i18n="html.footer.email">邮箱</span> <a href="mailto:3317927502@qq.com">3317927502@qq.com</a></p>
+    <p><span data-i18n="html.footer.contact">💬 联系客服：</span>QQ <a href="https://wpa.qq.com/msgrd?v=3&uin=3317927502&site=qq&menu=yes" target="_blank" rel="noopener">3317927502</a> <span data-i18n="html.footer.dot">·</span> <span data-i18n="html.footer.email">邮箱</span> <a href="mailto:3317927502@qq.com">3317927502@qq.com</a> <span data-i18n="html.footer.dot">·</span> <a href="#" id="feedback-link" data-i18n="html.feedback.link">💌 意见反馈</a></p>
   </footer>
 </main>
 
@@ -433,6 +433,30 @@
       <button id="journal-edit" class="ghost" hidden data-i18n="html.jmodal.edit">✏️ 编辑</button>
       <button id="journal-delete" class="ghost danger" hidden data-i18n="html.jmodal.delete">🗑️ 删除</button>
     </div>
+  </div>
+</div>
+
+<!-- 意见反馈 -->
+<div id="feedback-modal" class="modal" hidden>
+  <div class="modal-card journal-card">
+    <button id="feedback-close" class="modal-close" data-i18n-aria="html.modal.close" aria-label="关闭">✕</button>
+    <h3 data-i18n="html.feedback.title">💌 意见反馈</h3>
+    <p class="hint" data-i18n="html.feedback.desc">遇到问题，或有想加的功能，告诉我们吧～</p>
+    <form id="feedback-form">
+      <label class="fb-label" for="feedback-cat" data-i18n="html.feedback.cat_label">类型</label>
+      <select id="feedback-cat">
+        <option value="suggestion" data-i18n="html.feedback.cat_suggest">功能建议</option>
+        <option value="bug" data-i18n="html.feedback.cat_bug">问题反馈</option>
+        <option value="other" data-i18n="html.feedback.cat_other">其他</option>
+      </select>
+      <label class="fb-label" for="feedback-contact" data-i18n="html.feedback.contact_label">联系方式（选填）</label>
+      <input id="feedback-contact" type="text" maxlength="100" data-i18n-ph="html.feedback.contact_ph" placeholder="邮箱或 QQ，方便我们回复你" />
+      <label class="fb-label" for="feedback-msg" data-i18n="html.feedback.msg_label">你的反馈</label>
+      <textarea id="feedback-msg" rows="6" maxlength="2000" data-i18n-ph="html.feedback.msg_ph" placeholder="请详细描述你遇到的问题或想法…" required></textarea>
+      <p id="feedback-error" class="auth-error" hidden></p>
+      <p id="feedback-ok" class="fb-ok" hidden></p>
+      <button id="feedback-submit" class="cta" type="submit" data-i18n="html.feedback.submit">提交反馈</button>
+    </form>
   </div>
 </div>
 

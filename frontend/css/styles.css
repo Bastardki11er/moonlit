@@ -698,6 +698,12 @@ footer a:hover { text-decoration: underline; }
 .journal-card-modal, .journal-card { max-width: 520px; }
 #journal-modal .modal-card { max-width: 520px; text-align: left; }
 #journal-modal h3 { color: var(--gold-soft); margin: 0 0 .6rem; text-align: center; }
+/* 意见反馈 */
+#feedback-modal .modal-card { max-width: 520px; text-align: left; }
+#feedback-modal h3 { color: var(--gold-soft); margin: 0 0 .4rem; text-align: center; }
+.fb-label { display: block; font-size: .85rem; color: var(--muted); margin: .7rem 0 .3rem; }
+#feedback-form .cta { width: 100%; margin-top: .9rem; }
+.fb-ok { color: #9d8; font-size: .9rem; line-height: 1.6; }
 #journal-title { margin-bottom: .7rem; }
 .mood-row { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: .7rem; }
 .mood {

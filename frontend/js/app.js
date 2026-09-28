@@ -717,7 +717,7 @@ function closeLightbox() {
   if (!lb || lb.hidden) return;
   lb.hidden = true;
   // 只有其他弹窗都关了才恢复滚动
-  if ($("card-modal").hidden && $("journal-modal").hidden && $("auth-modal").hidden && $("share-modal").hidden) {
+  if ($("card-modal").hidden && $("journal-modal").hidden && $("auth-modal").hidden && $("share-modal").hidden && $("feedback-modal").hidden) {
     document.body.style.overflow = "";
   }
 }
@@ -754,6 +754,74 @@ if ($("card-modal")) {
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") closeLightbox();
 });
+
+/* ---------- 意见反馈 ---------- */
+function openFeedbackModal() {
+  $("feedback-error").hidden = true;
+  $("feedback-ok").hidden = true;
+  $("feedback-modal").hidden = false;
+  document.body.style.overflow = "hidden";
+}
+function closeFeedbackModal() {
+  $("feedback-modal").hidden = true;
+  // 只有其他弹窗都关了才恢复滚动
+  if ($("card-modal").hidden && $("journal-modal").hidden && $("auth-modal").hidden && $("share-modal").hidden) {
+    document.body.style.overflow = "";
+  }
+}
+
+if ($("feedback-modal")) {
+  $("feedback-link").addEventListener("click", (e) => {
+    e.preventDefault();
+    openFeedbackModal();
+  });
+  $("feedback-close").addEventListener("click", closeFeedbackModal);
+  $("feedback-modal").addEventListener("click", (e) => {
+    if (e.target.id === "feedback-modal") closeFeedbackModal();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && $("lightbox").hidden && !$("feedback-modal").hidden) closeFeedbackModal();
+  });
+  $("feedback-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const errEl = $("feedback-error"), okEl = $("feedback-ok"), btn = $("feedback-submit");
+    errEl.hidden = true;
+    okEl.hidden = true;
+    const message = $("feedback-msg").value.trim();
+    if (message.length < 10) {
+      errEl.hidden = false;
+      errEl.textContent = t("app.feedback.too_short");
+      return;
+    }
+    btn.disabled = true;
+    const prevLabel = btn.textContent;
+    btn.textContent = t("html.feedback.sending");
+    try {
+      const res = await fetch("/api/feedback", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          userId: moonlitUserId,
+          category: $("feedback-cat").value,
+          contact: $("feedback-contact").value.trim(),
+          message,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || t("app.feedback.failed"));
+      $("feedback-msg").value = "";
+      $("feedback-contact").value = "";
+      okEl.hidden = false;
+      okEl.textContent = t("app.feedback.success");
+    } catch (err) {
+      errEl.hidden = false;
+      errEl.textContent = err.message || t("app.feedback.failed");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = prevLabel;
+    }
+  });
+}
 
 /* ---------- 我的记录：reading history ----------
    Every reading is saved server-side under the visitor's user id.

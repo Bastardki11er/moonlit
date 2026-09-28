@@ -178,6 +178,18 @@ function validateJournalInput(body) {
   return { ok: true, clean: { title, content, mood, kind, refId } };
 }
 
+const FEEDBACK_CATEGORIES = ["suggestion", "bug", "other"];
+
+function validateFeedbackInput(body) {
+  const b = body || {};
+  const category = FEEDBACK_CATEGORIES.includes(b.category) ? b.category : "other";
+  const contact = typeof b.contact === "string" ? b.contact.trim().slice(0, 100) : "";
+  const message = typeof b.message === "string" ? b.message.trim() : "";
+  if (message.length < 10) return { ok: false, error: "反馈内容至少写 10 个字哦。" };
+  if (message.length > 2000) return { ok: false, error: "反馈太长了，请控制在 2000 字以内。" };
+  return { ok: true, clean: { category, contact, message } };
+}
+
 module.exports = { isValidUUID, validateReadingInput, validateFollowupInput, MAX_QUESTION,
-  validateBirthInput, validateJournalInput, JOURNAL_MOODS,
-  cleanLang, cleanSpreadKey, VALID_SPREAD_KEYS };
+  validateBirthInput, validateJournalInput, JOURNAL_MOODS, validateFeedbackInput,
+  FEEDBACK_CATEGORIES, cleanLang, cleanSpreadKey, VALID_SPREAD_KEYS };

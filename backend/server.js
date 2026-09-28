@@ -28,7 +28,7 @@ const helmet = require("helmet");
 require("dotenv").config();
 const { rateLimit, adminBruteForceGuard } = require("./security");
 const { isValidUUID, validateReadingInput, validateFollowupInput,
-  validateBirthInput, validateJournalInput, cleanLang, VALID_SPREAD_KEYS } = require("./validate");
+  validateBirthInput, validateJournalInput, validateFeedbackInput, cleanLang, VALID_SPREAD_KEYS } = require("./validate");
 const { buildReading, calcAstro } = require("./divination");
 const { calculateDailyAlmanac } = require("taibu-core/almanac");
 const { ragStatus } = require("./ziwei-rag");
@@ -72,6 +72,9 @@ const shareLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 20,
 // verification codes: 5/min/IP + 60s cooldown per email (stops email-bombing)
 const codeLimiter = rateLimit({ windowMs: 60 * 1000, max: 5,
   message: "发送太频繁了，稍后再试。" });
+// user feedback: guests allowed, strict cap to stop spam
+const feedbackLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 5,
+  message: "提交太频繁了，稍后再试。" });
 const CODE_RESEND_COOLDOWN_MS = 60 * 1000;
 function checkAdmin(req, res, next) {
   if (!ADMIN_TOKEN) return res.status(503).json({ error: "Admin is not configured." });
@@ -397,6 +400,19 @@ app.get("/api/admin/recent", adminLimiter, adminGuard.check, checkAdmin, (req, r
     readings: userdb.recentReadings(20),
     users: userdb.recentUsers(20),
   });
+});
+app.get("/api/admin/feedback", adminLimiter, adminGuard.check, checkAdmin, (req, res) => {
+  res.json({ items: userdb.listFeedback(100) });
+});
+
+/* ---------- user feedback ----------
+   Guests can submit (no login needed); strict rate limit stops spam. */
+app.post("/api/feedback", feedbackLimiter, (req, res) => {
+  const v = validateFeedbackInput(req.body);
+  if (!v.ok) return res.status(400).json({ error: v.error });
+  const user = resolveUser(req);
+  const id = userdb.saveFeedback(user.id, v.clean);
+  res.json({ id });
 });
 
 /* ============================================================
