@@ -71,6 +71,14 @@
     "zh": "点击牌堆抽牌，点击每张牌翻面。",
     "en": "Click the deck to draw cards, then click each card to flip it."
   },
+  "app.draw.hint_manual": {
+    "zh": "点击牌堆抽牌，抽完后逐张点击牌面翻开。",
+    "en": "Tap the deck to draw. Then tap each card to flip it over."
+  },
+  "app.draw.hint_flip_all": {
+    "zh": "抽完了，逐张点击翻开牌面，全部翻开后进入解读 ✨",
+    "en": "All drawn — tap each card to flip it, then the reading begins ✨"
+  },
   "app.draw.deck_left": {
     "zh": "还剩 {n} 张",
     "en": "{n} cards left"

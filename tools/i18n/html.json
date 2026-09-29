@@ -251,6 +251,14 @@
     "en": "Reading Journal",
     "zh": "占卜日记"
   },
+  "html.feat.gallery.title": {
+    "en": "Card Gallery",
+    "zh": "牌鉴"
+  },
+  "html.feat.gallery.desc": {
+    "en": "Meet every card · 78 custom artworks",
+    "zh": "认识每一张牌 · 78 张定制牌面"
+  },
   "html.feat.tarot.desc": {
     "en": "Ask your question · 78 custom cards · in-depth readings",
     "zh": "抽牌问事 · 78 张定制牌面 · 中文深度解读"
@@ -530,6 +538,18 @@
   "html.tarot.gallery": {
     "en": "🖼 Card Gallery",
     "zh": "🖼 牌鉴"
+  },
+  "html.tarot.reveal_label": {
+    "en": "Reveal style:",
+    "zh": "揭晓方式："
+  },
+  "html.tarot.reveal_auto": {
+    "en": "✨ Auto reveal",
+    "zh": "✨ 自动揭晓"
+  },
+  "html.tarot.reveal_manual": {
+    "en": "🃏 Flip one by one",
+    "zh": "🃏 逐张翻开"
   },
   "html.tarot.gallery_hint": {
     "en": "All 78 cards are custom-drawn for Moonlit Tarot. Tap any card to see its meaning.",

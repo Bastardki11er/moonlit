@@ -29,7 +29,11 @@ const SPREADS = {
 // NOTE: cards.js stores suit in lowercase ("wands"), so keys here are lowercase too.
 const SUIT_ZH = { wands: "权杖", cups: "圣杯", swords: "宝剑", pentacles: "星币" };
 
-let state = { question: "", spreadKey: null, deck: [], drawn: [] };
+let state = { question: "", spreadKey: null, deck: [], drawn: [], revealedCount: 0 };
+// 揭晓方式：auto 自动揭晓（默认）| manual 逐张翻开；记住用户的选择
+let revealMode = "auto";
+try { revealMode = localStorage.getItem("moonlit_reveal") || "auto"; } catch (e) {}
+if (revealMode !== "manual") revealMode = "auto";
 
 // ---------- user identity ----------
 // Every visitor gets a permanent anonymous id (stored in localStorage).
@@ -160,6 +164,9 @@ function startSpread(spreadKey) {
   state.spreadKey = spreadKey;
   state.deck = shuffle([...TAROT_CARDS]);
   state.drawn = [];
+  state.revealedCount = 0;
+  // 揭晓方式单选框：恢复用户上次的选择
+  document.querySelectorAll('input[name="reveal-mode"]').forEach((r) => { r.checked = r.value === revealMode; });
 
   const spread = SPREADS[spreadKey];
   $("draw-count").textContent = spread.count === 1 ? t("app.draw.one_card") : t("app.draw.count", { n: spread.count });
@@ -182,7 +189,7 @@ function startSpread(spreadKey) {
   setTimeout(() => {
     deckEl.classList.remove("shuffling");
     deckEl.classList.add("inviting");
-    $("draw-hint").textContent = t("app.draw.hint");
+    $("draw-hint").textContent = t(revealMode === "manual" ? "app.draw.hint_manual" : "app.draw.hint");
   }, 1000);
 }
 
@@ -205,8 +212,32 @@ $("deck").addEventListener("click", () => {
 
   if (state.drawn.length === spread.count) {
     $("deck").classList.remove("inviting");
-    setTimeout(showReadingStep, 900);
+    if (revealMode === "manual") {
+      // 逐张翻开：等用户把每张牌都翻过来再进入解读
+      $("draw-hint").textContent = t("app.draw.hint_flip_all");
+    } else {
+      setTimeout(() => { if (revealMode === "auto") showReadingStep(); }, 900);
+    }
   }
+});
+
+// 揭晓方式切换：记住选择；切回自动时把还没翻的牌依次翻开
+document.querySelectorAll('input[name="reveal-mode"]').forEach((r) => {
+  r.checked = r.value === revealMode;
+  r.addEventListener("change", () => {
+    revealMode = r.value;
+    try { localStorage.setItem("moonlit_reveal", revealMode); } catch (e) {}
+    if ($("step-draw").hidden) return;
+    if (revealMode === "auto") {
+      $("draw-hint").textContent = t("app.draw.hint");
+      document.querySelectorAll("#drawn .tarot-card:not(.revealed)").forEach((w, i) =>
+        setTimeout(() => w.click(), 150 + i * 160));
+    } else {
+      const left = document.querySelectorAll("#drawn .tarot-card:not(.revealed)").length;
+      $("draw-hint").textContent = t(left && state.drawn.length >= SPREADS[state.spreadKey].count
+        ? "app.draw.hint_flip_all" : "app.draw.hint_manual");
+    }
+  });
 });
 
 // card faces now show the real painted artwork (img/cards/<id>.webp)
@@ -263,10 +294,16 @@ function renderDrawnCard(card, reversed, position, index) {
     if (wrap.classList.contains("revealed")) return;
     wrap.classList.add("revealed");
     sparkBurst(wrap.getBoundingClientRect());
+    state.revealedCount++;
+    // 逐张翻开：全部翻完才进入解读
+    if (revealMode === "manual" && state.spreadKey && SPREADS[state.spreadKey] &&
+        state.revealedCount >= SPREADS[state.spreadKey].count) {
+      setTimeout(showReadingStep, 800);
+    }
   };
   wrap.addEventListener("click", reveal);
-  // auto-flip with a stagger so it feels alive
-  setTimeout(reveal, 450 + index * 220);
+  // 自动揭晓：依次自己翻开；逐张翻开：等用户亲手点
+  if (revealMode === "auto") setTimeout(reveal, 450 + index * 220);
 }
 
 // golden sparks that burst outward when a card is revealed
@@ -527,7 +564,7 @@ $("followup-input").addEventListener("keydown", (e) => {
 
 // ---------- restart ----------
 $("restart").addEventListener("click", () => {
-  state = { question: "", spreadKey: null, deck: [], drawn: [] };
+  state = { question: "", spreadKey: null, deck: [], drawn: [], revealedCount: 0 };
   $("question").value = "";
   document.querySelectorAll(".spread-btn").forEach((b) => b.classList.remove("selected"));
   $("step-reading").hidden = true;

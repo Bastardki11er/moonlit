@@ -35,7 +35,7 @@ async function api(path, opts) {
 const para = (t) => esc(t).replace(/\n/g, "<br>");
 
 /* ---------------- view tabs ---------------- */
-const VIEW_TITLES = { home: "div.view.home", tarot: "div.view.tarot", bazi: "div.view.bazi", ziwei: "div.view.ziwei", astro: "div.view.astro", journal: "div.view.journal" };
+const VIEW_TITLES = { home: "div.view.home", tarot: "div.view.tarot", gallery: "html.tarot.gallery", bazi: "div.view.bazi", ziwei: "div.view.ziwei", astro: "div.view.astro", journal: "div.view.journal" };
 function switchView(name) {
   document.querySelectorAll("#topnav [data-view]").forEach((b) =>
     b.classList.toggle("active", b.dataset.view === name));
@@ -51,7 +51,7 @@ document.querySelectorAll("#topnav [data-view]").forEach((btn) => {
 });
 
 /* 首页功能磁贴 → 跳转到对应视图 */
-document.querySelectorAll(".feature-tile[data-goto]").forEach((tile) => {
+document.querySelectorAll("[data-goto]").forEach((tile) => {
   tile.addEventListener("click", () => switchView(tile.dataset.goto));
 });
 

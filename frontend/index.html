@@ -115,6 +115,12 @@
           <span class="feature-desc" data-i18n="html.feat.journal.desc">记录每一次心动 · 时间会给你答案</span>
           <span class="feature-go" data-i18n="html.feat.go">进入 →</span>
         </button>
+        <button class="feature-tile" data-goto="gallery">
+          <span class="feature-icon">🖼</span>
+          <span class="feature-title" data-i18n="html.feat.gallery.title">牌鉴</span>
+          <span class="feature-desc" data-i18n="html.feat.gallery.desc">认识每一张牌 · 78 张定制牌面</span>
+          <span class="feature-go" data-i18n="html.feat.go">进入 →</span>
+        </button>
       </div>
     </section>
 
@@ -156,7 +162,7 @@
     <div class="toolbar">
       <button id="nav-start" class="navbtn" data-i18n="html.tarot.start">🔮 开始占卜</button>
       <button id="nav-history" class="navbtn"><span data-i18n="html.tarot.history">📜 我的记录</span> <span id="history-count" class="count-badge" hidden></span></button>
-      <a href="#gallery" class="navbtn linkbtn" data-i18n="html.tarot.gallery">🖼 牌鉴</a>
+      <button class="navbtn" data-goto="gallery" data-i18n="html.tarot.gallery">🖼 牌鉴</button>
     </div>
 
     <!-- 第一步：问题 -->
@@ -195,6 +201,13 @@
     <section id="step-draw" class="panel" hidden>
       <h2><span data-i18n="html.tarot.step3">第三步 · 抽</span> <span id="draw-count"></span> <span id="draw-progress" class="draw-progress"></span></h2>
       <p class="hint" id="draw-hint" data-i18n="html.tarot.draw_hint">点击牌堆抽牌，点击每张牌翻面。</p>
+      <div class="reveal-pick">
+        <span class="hint" data-i18n="html.tarot.reveal_label">揭晓方式：</span>
+        <div class="pill-group" role="radiogroup" aria-label="揭晓方式">
+          <label class="pill"><input type="radio" name="reveal-mode" value="auto" checked /><span data-i18n="html.tarot.reveal_auto">✨ 自动揭晓</span></label>
+          <label class="pill"><input type="radio" name="reveal-mode" value="manual" /><span data-i18n="html.tarot.reveal_manual">🃏 逐张翻开</span></label>
+        </div>
+      </div>
       <div class="table">
         <div class="draw-fx" id="draw-fx"></div>
         <div id="deck" class="deck" data-i18n-title="html.tarot.deck_title" title="点击抽牌">
@@ -249,8 +262,11 @@
       <button id="history-close" class="ghost" data-i18n="html.tarot.history_close">关闭</button>
     </section>
 
-    <!-- 牌鉴：浏览全部 78 张牌 -->
-    <section id="gallery" class="panel">
+  </div>
+
+  <!-- ============ 牌鉴：独立浏览 ============ -->
+  <div id="view-gallery" class="view" hidden>
+    <section class="panel">
       <h2 data-i18n="html.tarot.gallery_title">🔮 牌鉴 · 认识每一张牌</h2>
       <p class="hint" data-i18n="html.tarot.gallery_hint">78 张牌全部为月光塔罗定制绘制。点击任意一张查看它的含义。</p>
       <div id="gallery-grid"></div>
