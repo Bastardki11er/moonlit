@@ -591,6 +591,10 @@
     "en": "📤 Create share image",
     "zh": "📤 生成分享图"
   },
+  "html.tarot.feedback_btn": {
+    "en": "💌 Feedback on this reading",
+    "zh": "💌 反馈这次解读"
+  },
   "html.tarot.start": {
     "en": "🔮 Start a reading",
     "zh": "🔮 开始占卜"

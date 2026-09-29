@@ -142,6 +142,7 @@ CREATE TABLE IF NOT EXISTS birth_profiles (
 CREATE TABLE IF NOT EXISTS feedback (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id    TEXT,                          -- anonymous visitor id (may be NULL)
+  reading_id INTEGER,                        -- the reading this feedback is about (NULL for general feedback)
   category   TEXT NOT NULL DEFAULT 'other', -- suggestion | bug | other
   contact    TEXT NOT NULL DEFAULT '',      -- optional email / QQ for reply
   message    TEXT NOT NULL,
@@ -205,6 +206,9 @@ async function init() {
   // Migration for the i18n language switch (2026-09-28): stable spread key
   // so history/follow-ups can render the spread name in either language.
   try { db.exec("ALTER TABLE readings ADD COLUMN spread_key TEXT"); } catch (e) { /* already there */ }
+  // Migration for reading-linked feedback (2026-09-28): feedback submitted
+  // right after a reading carries that reading's id.
+  try { db.exec("ALTER TABLE feedback ADD COLUMN reading_id INTEGER"); } catch (e) { /* already there */ }
   // Migration for referral attribution (2026-09-26).
   try { db.exec("ALTER TABLE users ADD COLUMN referred_by TEXT"); } catch (e) { /* already there */ }
   // Migration for member birth profiles (2026-09-26). CREATE TABLE IF NOT
@@ -785,16 +789,19 @@ function deleteJournal(userId, id) {
 }
 
 /* ---------- user feedback ---------- */
-function saveFeedback(userId, { category, contact, message }) {
+function saveFeedback(userId, { category, contact, message, readingId }) {
   run(
-    "INSERT INTO feedback (user_id, category, contact, message, status, created_at) VALUES (?, ?, ?, ?, 'new', ?)",
-    [userId || null, category, contact, message, now()]
+    "INSERT INTO feedback (user_id, reading_id, category, contact, message, status, created_at) VALUES (?, ?, ?, ?, ?, 'new', ?)",
+    [userId || null, readingId || null, category, contact, message, now()]
   );
   return get("SELECT last_insert_rowid() AS id").id;
 }
 function listFeedback(limit = 100) {
   return all(
-    "SELECT id, user_id, category, contact, message, status, created_at FROM feedback ORDER BY id DESC LIMIT ?",
+    `SELECT f.id, f.user_id, f.reading_id, f.category, f.contact, f.message,
+            f.status, f.created_at, r.question AS reading_question
+     FROM feedback f LEFT JOIN readings r ON r.id = f.reading_id
+     ORDER BY f.id DESC LIMIT ?`,
     [limit]
   );
 }

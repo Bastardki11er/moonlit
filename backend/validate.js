@@ -187,7 +187,13 @@ function validateFeedbackInput(body) {
   const message = typeof b.message === "string" ? b.message.trim() : "";
   if (message.length < 10) return { ok: false, error: "反馈内容至少写 10 个字哦。" };
   if (message.length > 2000) return { ok: false, error: "反馈太长了，请控制在 2000 字以内。" };
-  return { ok: true, clean: { category, contact, message } };
+  let readingId = null;
+  if (b.readingId !== undefined && b.readingId !== null && b.readingId !== "") {
+    const n = Number(b.readingId);
+    if (!Number.isInteger(n) || n <= 0) return { ok: false, error: "关联的解读找不到了。" };
+    readingId = n;
+  }
+  return { ok: true, clean: { category, contact, message, readingId } };
 }
 
 module.exports = { isValidUUID, validateReadingInput, validateFollowupInput, MAX_QUESTION,

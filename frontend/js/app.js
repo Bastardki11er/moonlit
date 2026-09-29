@@ -362,6 +362,7 @@ $("get-reading").addEventListener("click", async () => {
     lastReadingText = result.text;
     currentReadingId = result.readingId || null;
     $("share-reading").hidden = false;
+    $("feedback-reading").hidden = false;
     updateReadingNote(result.freeLeft);
     // follow-up box: fresh thread for this reading
     $("followup-thread").innerHTML = "";
@@ -756,7 +757,10 @@ document.addEventListener("keydown", (e) => {
 });
 
 /* ---------- 意见反馈 ---------- */
-function openFeedbackModal() {
+// readingId: the reading this feedback is about (null when opened from the footer link)
+let feedbackReadingId = null;
+function openFeedbackModal(readingId = null) {
+  feedbackReadingId = readingId;
   $("feedback-error").hidden = true;
   $("feedback-ok").hidden = true;
   $("feedback-modal").hidden = false;
@@ -773,8 +777,12 @@ function closeFeedbackModal() {
 if ($("feedback-modal")) {
   $("feedback-link").addEventListener("click", (e) => {
     e.preventDefault();
-    openFeedbackModal();
+    openFeedbackModal(null);
   });
+  // “反馈这次解读”按钮：解读完成后出现，反馈关联到这次解读
+  if ($("feedback-reading")) {
+    $("feedback-reading").addEventListener("click", () => openFeedbackModal(currentReadingId));
+  }
   $("feedback-close").addEventListener("click", closeFeedbackModal);
   $("feedback-modal").addEventListener("click", (e) => {
     if (e.target.id === "feedback-modal") closeFeedbackModal();
@@ -805,6 +813,7 @@ if ($("feedback-modal")) {
           category: $("feedback-cat").value,
           contact: $("feedback-contact").value.trim(),
           message,
+          readingId: feedbackReadingId,
         }),
       });
       const data = await res.json().catch(() => ({}));

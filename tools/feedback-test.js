@@ -38,15 +38,22 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ok(good.ok && good.clean.category === "bug" && good.clean.contact === "a@b.cn", "accepts valid input, trims contact");
   const weird = v.validateFeedbackInput({ category: "hack', DROP TABLE", message: "0123456789" });
   ok(weird.ok && weird.clean.category === "other", "unknown category falls back to other");
+  const withR = v.validateFeedbackInput({ message: "0123456789", readingId: 42 });
+  ok(withR.ok && withR.clean.readingId === 42, "accepts valid readingId");
+  ok(!v.validateFeedbackInput({ message: "0123456789", readingId: 0 }).ok, "rejects readingId 0");
+  ok(!v.validateFeedbackInput({ message: "0123456789", readingId: "abc" }).ok, "rejects non-numeric readingId");
 
   // 3. db round-trip (feedback table created by schema migration)
   const userdb = await require(path.join(backendDir, "db.js")).init();
   const u = userdb.getOrCreateUser(null);
-  const fid = userdb.saveFeedback(u.id, { category: "suggestion", contact: "u@qq.com", message: "希望加一个英文版的每日一牌" });
+  const rid = userdb.saveReading(u.id, { question: "这次解读准不准", spread: "单张", spreadKey: "single", cards: [], readingText: "…" });
+  const fid = userdb.saveFeedback(u.id, { category: "suggestion", contact: "u@qq.com", message: "希望加一个英文版的每日一牌", readingId: rid });
   ok(Number.isInteger(fid), "saveFeedback returns id");
   const items = userdb.listFeedback(100);
   ok(items.length === 1 && items[0].message === "希望加一个英文版的每日一牌" && items[0].status === "new",
     "listFeedback returns the saved row");
+  ok(items[0].reading_id === rid && items[0].reading_question === "这次解读准不准",
+    "listFeedback joins the linked reading's question");
 
   // 4. HTTP: boot the real server on a test port
   const PORT = 4317;
@@ -68,7 +75,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   let r = await post({ message: "短" });
   ok(r.status === 400, "POST short message -> 400");
   const bodies = [
-    { category: "suggestion", contact: "t@qq.com", message: "第一条有效的用户反馈内容，超过十个字" },
+    { category: "suggestion", contact: "t@qq.com", message: "第一条有效的用户反馈内容，超过十个字", readingId: rid },
     { category: "bug", message: "第二条反馈：页面上有个按钮点不动，麻烦看看" },
     { message: "第三条反馈内容，没有分类和联系方式也能提交" },
     { category: "other", message: "第四条反馈内容，用来占满限流额度" },
@@ -85,6 +92,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ok(r.status === 200 && adminData.items.length === 5, "GET /api/admin/feedback with token -> 5 items (1 direct + 4 HTTP)");
   ok(adminData.items[0].contact === "t@qq.com" || adminData.items.some((x) => x.category === "bug"),
     "admin list carries category + contact");
+  const linked = adminData.items.find((x) => x.reading_id === rid);
+  ok(linked && linked.reading_question === "这次解读准不准",
+    "admin list shows the reading link for post-reading feedback");
 
   r = await fetch(base + "/api/admin/feedback?token=wrong");
   ok(r.status === 401, "GET /api/admin/feedback with wrong token -> 401");
